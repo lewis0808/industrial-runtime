@@ -209,6 +209,25 @@ RespValue Dispatcher::handle(Session &session, const RespValue &request) {
         return makeInteger(0);
     }
 
+    if (name == "SET") {
+        // SET <topic> <type> <value-bulk>：写回设备（同步"已受理"语义）。
+        if (argc != 3) {
+            return makeError("WRONG_ARITY", "SET <topic> <type> <value>");
+        }
+        if (writer_ == nullptr) {
+            return makeError("NOT_IMPLEMENTED", "write-back not available");
+        }
+        switch (writer_->write(arg(0), arg(1), arg(2))) {
+        case WriteResult::Accepted:
+            return makeSimple("OK");
+        case WriteResult::NotHandled:
+            return makeError("NOT_FOUND", "no writer for topic");
+        case WriteResult::Error:
+        default:
+            return makeError("ERR", "write failed");
+        }
+    }
+
     if (name == "SUBSTREAM" || name == "UNSUBSTREAM") {
         return makeError("NOT_IMPLEMENTED", "stream subscription is reserved for V2");
     }

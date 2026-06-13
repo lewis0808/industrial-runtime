@@ -8,6 +8,7 @@
 
 #include "codec/resp_value.hpp"
 #include "semantic/tag_source.hpp"
+#include "semantic/tag_writer.hpp"
 #include "semantic/topic_trie.hpp"
 
 namespace irp {
@@ -35,6 +36,9 @@ class Dispatcher {
     /// 处理一个请求，返回回复值。会按需改变 session 与订阅状态。
     [[nodiscard]] RespValue handle(Session &session, const RespValue &request);
 
+    /// 注册写回出口（可选）。未设置时 SET 返回 NOT_IMPLEMENTED。
+    void setWriter(TagWriter *writer) noexcept { writer_ = writer; }
+
     /// 连接关闭时清理其订阅。
     void onSessionClosed(std::uint64_t id);
 
@@ -51,6 +55,7 @@ class Dispatcher {
 
   private:
     const TagSource *tags_;
+    TagWriter *writer_{nullptr};                               ///< 写回出口（可选）
     TopicTrie tagSubs_;                                        ///< tag 订阅（id = session id）
     std::unordered_map<std::uint64_t, EventFilter> eventSubs_; ///< 事件订阅
 };
