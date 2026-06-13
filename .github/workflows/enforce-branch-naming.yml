@@ -9,10 +9,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
     steps:
       - name: Validate and enforce branch name
         env:
           BRANCH: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
@@ -23,9 +25,24 @@ jobs:
           if [[ "$BRANCH" =~ ^(feature|fix|release|hotfix|chore)/.+ ]]; then
             echo "OK: $BRANCH"
           else
-            echo "Invalid branch name: $BRANCH"
-            echo "Required format: feature/<desc> | fix/<desc> | release/<version> | hotfix/<desc> | chore/<desc>"
             gh api --method DELETE "/repos/$REPO/git/refs/heads/$BRANCH"
-            echo "Branch '$BRANCH' has been deleted."
+
+            gh api --method POST "/repos/$REPO/issues" \
+              -f title="Invalid branch name / 分支命名不规范: $BRANCH" \
+              -f body="@$ACTOR
+
+Branch \`$BRANCH\` was deleted because it does not follow the naming convention.
+分支 \`$BRANCH\` 不符合命名规范，已被自动删除。
+
+**Valid formats / 合法格式：**
+- \`feature/<description>\`
+- \`fix/<description>\`
+- \`release/<version>\`
+- \`hotfix/<description>\`
+- \`chore/<description>\`
+
+Please recreate the branch with a valid name.
+请按照规范重新创建分支。"
+
             exit 1
           fi
