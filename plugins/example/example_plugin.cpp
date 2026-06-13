@@ -13,8 +13,8 @@ public:
     bool init() override { return host_.valid(); }
 
     bool start() override {
-        host_.pushTag("example.temperature", 25.5);
-        host_.pushTag("example.running", true);
+        host_.pushTag("example/temperature", 25.5);
+        host_.pushTag("example/running", true);
         host_.pushEvent("example", "state", "plugin started", IRPLUGIN_SEV_INFO);
         return true;
     }

@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
         "heartbeat", std::chrono::seconds(1), [&runtime] {
             static std::int64_t counter = 0;
             ++counter;
-            runtime.pushTag(core::TagValue{"system.heartbeat", counter});
+            runtime.pushTag(core::TagValue{"system/heartbeat", counter});
             runtime.pushEvent(core::Event{"runtime", "state",
                                           "heartbeat #" + std::to_string(counter),
                                           core::EventSeverity::Info});
