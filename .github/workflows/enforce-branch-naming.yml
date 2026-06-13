@@ -27,22 +27,11 @@ jobs:
           else
             gh api --method DELETE "/repos/$REPO/git/refs/heads/$BRANCH"
 
+            BODY=$(printf "@%s\n\nBranch \`%s\` was deleted because it does not follow the naming convention.\n分支 \`%s\` 不符合命名规范，已被自动删除。\n\n**Valid formats / 合法格式：**\n- \`feature/<description>\`\n- \`fix/<description>\`\n- \`release/<version>\`\n- \`hotfix/<description>\`\n- \`chore/<description>\`\n\nPlease recreate the branch with a valid name.\n请按照规范重新创建分支。" "$ACTOR" "$BRANCH" "$BRANCH")
+
             gh api --method POST "/repos/$REPO/issues" \
               -f title="Invalid branch name / 分支命名不规范: $BRANCH" \
-              -f body="@$ACTOR
-
-Branch \`$BRANCH\` was deleted because it does not follow the naming convention.
-分支 \`$BRANCH\` 不符合命名规范，已被自动删除。
-
-**Valid formats / 合法格式：**
-- \`feature/<description>\`
-- \`fix/<description>\`
-- \`release/<version>\`
-- \`hotfix/<description>\`
-- \`chore/<description>\`
-
-Please recreate the branch with a valid name.
-请按照规范重新创建分支。"
+              -f "body=$BODY"
 
             exit 1
           fi
