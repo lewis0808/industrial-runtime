@@ -18,8 +18,9 @@
 extern "C" {
 #endif
 
-/* ABI 版本。插件与宿主必须一致，否则拒绝加载。 */
-#define IRPLUGIN_ABI_VERSION 1u
+/* ABI 版本。宿主接受 <= 自身版本的插件（结构体仅末尾追加，向后兼容）。
+ * v2 起 IrPluginHostApi 追加 register_writer（写回）。 */
+#define IRPLUGIN_ABI_VERSION 2u
 
 /* 数据类型。取值顺序与 core::DataType 严格一致，便于 1:1 映射。 */
 typedef enum IrPluginDataType {
@@ -104,15 +105,27 @@ typedef struct IrPluginStreamFrame {
 } IrPluginStreamFrame;
 
 /*
+ * 写回处理器：宿主在收到应用 SET 时回调插件，让其把值写到设备。
+ * plugin_ctx 为插件注册时给定的上下文，宿主原样回传。
+ * 返回 1 表示已受理（已写出/已排队），0 表示未处理，<0 表示错误。
+ */
+typedef int (*IrPluginWriteFn)(void *plugin_ctx, const IrPluginTagValue *tag);
+
+/*
  * 宿主 API：由 Runtime 实现并在 createPlugin 时传给插件。
  * 全部为 C 函数指针，返回 1 表示成功 / 已写入，0 表示失败 / 被丢弃。
  * ctx 为宿主内部上下文，插件必须原样回传。
+ *
+ * 注意：本结构体仅允许在末尾追加字段（宿主总是填满，旧插件只读其已知前缀，向后兼容）。
  */
 typedef struct IrPluginHostApi {
     void *ctx;
     int (*push_tag)(void *ctx, const IrPluginTagValue *tag);
     int (*push_event)(void *ctx, const IrPluginEvent *event);
     int (*push_stream)(void *ctx, const IrPluginStreamFrame *frame);
+    /* ABI v2 追加：注册写回处理器。插件声明它负责 prefix 前缀下 Tag 的写。 */
+    void (*register_writer)(void *ctx, const char *prefix, void *plugin_ctx,
+                            IrPluginWriteFn handler);
 } IrPluginHostApi;
 
 /* 插件元信息。字符串为插件内静态常量，生命周期等同 DLL 加载期。 */
