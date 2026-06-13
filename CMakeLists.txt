@@ -25,4 +25,8 @@ if(IR_BUILD_TESTS)
     enable_testing()
 endif()
 
+# 顺序：plugin-sdk 与示例插件须先于 core 定义
+# （core 链接 plugin_sdk，core/tests 的端到端测试依赖 example_plugin 目标）。
+add_subdirectory(sdk/plugin-sdk)
+add_subdirectory(plugins/example)
 add_subdirectory(core)
