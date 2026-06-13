@@ -31,6 +31,7 @@ endif()
 # ---- 服务端：core 绑定 + IRP WebSocket 服务 ----
 add_library(irp_server STATIC
     server/core_tag_source.cpp
+    server/core_tag_writer.cpp
     server/irp_server.cpp)
 target_link_libraries(irp_server
     PUBLIC irp_semantic core_tag_engine
