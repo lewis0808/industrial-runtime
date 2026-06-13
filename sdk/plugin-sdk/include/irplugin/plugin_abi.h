@@ -55,7 +55,7 @@ typedef enum IrPluginStreamType {
 
 /* 非拥有的字符串视图：不要求以 '\0' 结尾。 */
 typedef struct IrPluginString {
-    const char* data;
+    const char *data;
     size_t len;
 } IrPluginString;
 
@@ -63,17 +63,17 @@ typedef struct IrPluginString {
 typedef struct IrPluginVariant {
     IrPluginDataType type;
     union {
-        uint8_t  boolean; /* 0 / 1 */
-        int8_t   i8;
-        int16_t  i16;
-        int32_t  i32;
-        int64_t  i64;
-        uint8_t  u8;
+        uint8_t boolean; /* 0 / 1 */
+        int8_t i8;
+        int16_t i16;
+        int32_t i32;
+        int64_t i64;
+        uint8_t u8;
         uint16_t u16;
         uint32_t u32;
         uint64_t u64;
-        float    f32;
-        double   f64;
+        float f32;
+        double f64;
         IrPluginString str;
     } as;
 } IrPluginVariant;
@@ -99,7 +99,7 @@ typedef struct IrPluginStreamFrame {
     IrPluginString source;
     int32_t type;         /* IrPluginStreamType */
     int64_t timestamp_ns; /* 0 = 宿主取当前时间 */
-    const uint8_t* payload;
+    const uint8_t *payload;
     size_t payload_len;
 } IrPluginStreamFrame;
 
@@ -109,26 +109,26 @@ typedef struct IrPluginStreamFrame {
  * ctx 为宿主内部上下文，插件必须原样回传。
  */
 typedef struct IrPluginHostApi {
-    void* ctx;
-    int (*push_tag)(void* ctx, const IrPluginTagValue* tag);
-    int (*push_event)(void* ctx, const IrPluginEvent* event);
-    int (*push_stream)(void* ctx, const IrPluginStreamFrame* frame);
+    void *ctx;
+    int (*push_tag)(void *ctx, const IrPluginTagValue *tag);
+    int (*push_event)(void *ctx, const IrPluginEvent *event);
+    int (*push_stream)(void *ctx, const IrPluginStreamFrame *frame);
 } IrPluginHostApi;
 
 /* 插件元信息。字符串为插件内静态常量，生命周期等同 DLL 加载期。 */
 typedef struct IrPluginInfo {
     uint32_t abi_version; /* 必须等于 IRPLUGIN_ABI_VERSION */
-    const char* id;
-    const char* name;
-    const char* version;
+    const char *id;
+    const char *name;
+    const char *version;
 } IrPluginInfo;
 
 /* 导出符号名（宿主用 dlsym/GetProcAddress 解析）。 */
 #define IRPLUGIN_SYM_GET_PLUGIN_INFO "getPluginInfo"
-#define IRPLUGIN_SYM_CREATE_PLUGIN   "createPlugin"
+#define IRPLUGIN_SYM_CREATE_PLUGIN "createPlugin"
 
 #ifdef __cplusplus
-}  /* extern "C" */
+} /* extern "C" */
 #endif
 
 #endif /* IRPLUGIN_ABI_H */

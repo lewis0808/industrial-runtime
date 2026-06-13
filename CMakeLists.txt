@@ -5,6 +5,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# 导出 compile_commands.json，供 clang-tidy / clangd 使用。
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # 源码为 UTF-8。中文 locale 下 MSVC 默认按 GBK(936) 解释源码会破坏注释/解析，
 # 显式声明 UTF-8 以保证跨平台一致。
 if(MSVC)

@@ -7,7 +7,7 @@ int main() {
     using namespace core;
     Config cfg;
 
-    const char* json = R"({
+    const char *json = R"({
         "logger": { "level": "debug", "console": true },
         "runtime": { "scheduler": { "threads": 4 } }
     })";
@@ -25,7 +25,7 @@ int main() {
     IR_CHECK(cfg.has("logger.level"));
     IR_CHECK(!cfg.has("logger.nope"));
     IR_CHECK(cfg.tryGet<int>("runtime.scheduler.threads").has_value());
-    IR_CHECK(!cfg.tryGet<int>("logger.level").has_value());  // 类型不匹配
+    IR_CHECK(!cfg.tryGet<int>("logger.level").has_value()); // 类型不匹配
 
     // 非法 JSON 加载失败。
     IR_CHECK(!cfg.loadString("{ not valid"));

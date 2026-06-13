@@ -18,8 +18,8 @@ struct RespSimple {
 };
 
 struct RespError {
-    std::string code;     ///< 大写错误码（见 protocol/error.md）
-    std::string message;  ///< 人类可读补充
+    std::string code;    ///< 大写错误码（见 protocol/error.md）
+    std::string message; ///< 人类可读补充
 };
 
 struct RespInteger {
@@ -48,20 +48,12 @@ struct RespMap {
 
 // ---- 便利构造 ----
 
-[[nodiscard]] inline RespValue makeSimple(std::string s) {
-    return RespSimple{std::move(s)};
-}
+[[nodiscard]] inline RespValue makeSimple(std::string s) { return RespSimple{std::move(s)}; }
 [[nodiscard]] inline RespValue makeError(std::string code, std::string message) {
     return RespError{std::move(code), std::move(message)};
 }
-[[nodiscard]] inline RespValue makeInteger(std::int64_t v) {
-    return RespInteger{v};
-}
-[[nodiscard]] inline RespValue makeBulk(std::string data) {
-    return RespBulk{std::move(data)};
-}
-[[nodiscard]] inline RespValue makeNull() {
-    return RespNull{};
-}
+[[nodiscard]] inline RespValue makeInteger(std::int64_t v) { return RespInteger{v}; }
+[[nodiscard]] inline RespValue makeBulk(std::string data) { return RespBulk{std::move(data)}; }
+[[nodiscard]] inline RespValue makeNull() { return RespNull{}; }
 
-}  // namespace irp
+} // namespace irp

@@ -23,11 +23,10 @@ std::vector<std::string_view> splitTopic(std::string_view topic) {
 namespace {
 
 bool segmentHasWildcardChar(std::string_view seg) {
-    return seg.find('+') != std::string_view::npos ||
-           seg.find('#') != std::string_view::npos;
+    return seg.find('+') != std::string_view::npos || seg.find('#') != std::string_view::npos;
 }
 
-}  // namespace
+} // namespace
 
 bool TopicMatcher::isValidPattern(std::string_view pattern) {
     if (pattern.empty()) {
@@ -37,11 +36,11 @@ bool TopicMatcher::isValidPattern(std::string_view pattern) {
     for (std::size_t i = 0; i < segs.size(); ++i) {
         const std::string_view seg = segs[i];
         if (seg.empty()) {
-            return false;  // 禁止空段（前导/尾随/连续 '/'）
+            return false; // 禁止空段（前导/尾随/连续 '/'）
         }
         if (seg == "#") {
             if (i != segs.size() - 1) {
-                return false;  // '#' 必须是末段
+                return false; // '#' 必须是末段
             }
             continue;
         }
@@ -49,7 +48,7 @@ bool TopicMatcher::isValidPattern(std::string_view pattern) {
             continue;
         }
         if (segmentHasWildcardChar(seg)) {
-            return false;  // 通配符必须独占整段
+            return false; // 通配符必须独占整段
         }
     }
     return true;
@@ -77,7 +76,7 @@ bool TopicMatcher::matches(std::string_view pattern, std::string_view topic) {
     std::size_t j = 0;
     while (i < p.size()) {
         if (p[i] == "#") {
-            return true;  // 匹配剩余零或多层
+            return true; // 匹配剩余零或多层
         }
         if (j >= t.size()) {
             return false;
@@ -92,4 +91,4 @@ bool TopicMatcher::matches(std::string_view pattern, std::string_view topic) {
     return j == t.size();
 }
 
-}  // namespace irp
+} // namespace irp

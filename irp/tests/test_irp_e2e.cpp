@@ -26,8 +26,8 @@ namespace {
 constexpr std::uint16_t TEST_PORT = 19790;
 
 struct ClientState {
-    core::RuntimeEngine* runtime{nullptr};
-    struct lws* wsi{nullptr};
+    core::RuntimeEngine *runtime{nullptr};
+    struct lws *wsi{nullptr};
     std::deque<std::string> outbox;
     std::string rx;
     int step{0};
@@ -39,131 +39,131 @@ struct ClientState {
     bool failed{false};
 };
 
-std::string encodeCmd(const std::vector<std::string>& parts) {
+std::string encodeCmd(const std::vector<std::string> &parts) {
     RespArray a;
-    for (const auto& p : parts) {
+    for (const auto &p : parts) {
         a.items.push_back(makeBulk(p));
     }
     return Resp1Codec::encode(a);
 }
 
-const std::string* mapGet(const RespValue& v, const std::string& key) {
-    const auto* m = std::get_if<RespMap>(&v);
+const std::string *mapGet(const RespValue &v, const std::string &key) {
+    const auto *m = std::get_if<RespMap>(&v);
     if (m == nullptr) {
         return nullptr;
     }
-    for (const auto& [k, val] : m->entries) {
-        const auto* kb = std::get_if<RespBulk>(&k);
+    for (const auto &[k, val] : m->entries) {
+        const auto *kb = std::get_if<RespBulk>(&k);
         if (kb != nullptr && kb->data == key) {
-            const auto* vb = std::get_if<RespBulk>(&val);
+            const auto *vb = std::get_if<RespBulk>(&val);
             return vb != nullptr ? &vb->data : nullptr;
         }
     }
     return nullptr;
 }
 
-void sendCmd(ClientState& s, const std::vector<std::string>& parts) {
+void sendCmd(ClientState &s, const std::vector<std::string> &parts) {
     s.outbox.push_back(encodeCmd(parts));
     lws_callback_on_writable(s.wsi);
 }
 
-void onReply(ClientState& s, const RespValue& v) {
+void onReply(ClientState &s, const RespValue &v) {
     switch (s.step) {
-        case 1: {  // HELLO 回复
-            const auto* enc = mapGet(v, "encoding");
-            s.helloOk = (enc != nullptr && *enc == "resp1");
-            s.step = 2;
-            sendCmd(s, {"GET", "plant/temp"});
-            break;
+    case 1: { // HELLO 回复
+        const auto *enc = mapGet(v, "encoding");
+        s.helloOk = (enc != nullptr && *enc == "resp1");
+        s.step = 2;
+        sendCmd(s, {"GET", "plant/temp"});
+        break;
+    }
+    case 2: { // GET 回复
+        const auto *type = mapGet(v, "type");
+        const auto *val = mapGet(v, "value");
+        if (type != nullptr && *type == "f64" && val != nullptr && val->size() == 8) {
+            double d = 0;
+            std::memcpy(&d, val->data(), 8);
+            s.getOk = (d == 42.0);
         }
-        case 2: {  // GET 回复
-            const auto* type = mapGet(v, "type");
-            const auto* val = mapGet(v, "value");
-            if (type != nullptr && *type == "f64" && val != nullptr && val->size() == 8) {
-                double d = 0;
-                std::memcpy(&d, val->data(), 8);
-                s.getOk = (d == 42.0);
-            }
-            s.step = 3;
-            sendCmd(s, {"SUBSCRIBE", "plant/#"});
-            break;
+        s.step = 3;
+        sendCmd(s, {"SUBSCRIBE", "plant/#"});
+        break;
+    }
+    case 3: { // SUBSCRIBE 回复（整数）
+        s.subOk = std::holds_alternative<RespInteger>(v);
+        s.step = 4;
+        // 触发 Tag 变化 -> 服务端应推送。
+        s.runtime->pushTag(core::TagValue{"plant/temp", 43.0});
+        break;
+    }
+    case 4: { // 期待 tag 推送
+        const auto *push = mapGet(v, "push");
+        const auto *name = mapGet(v, "name");
+        if (push != nullptr && *push == "tag" && name != nullptr && *name == "plant/temp") {
+            s.gotPush = true;
         }
-        case 3: {  // SUBSCRIBE 回复（整数）
-            s.subOk = std::holds_alternative<RespInteger>(v);
-            s.step = 4;
-            // 触发 Tag 变化 -> 服务端应推送。
-            s.runtime->pushTag(core::TagValue{"plant/temp", 43.0});
-            break;
-        }
-        case 4: {  // 期待 tag 推送
-            const auto* push = mapGet(v, "push");
-            const auto* name = mapGet(v, "name");
-            if (push != nullptr && *push == "tag" && name != nullptr && *name == "plant/temp") {
-                s.gotPush = true;
-            }
-            s.done = true;
-            break;
-        }
-        default:
-            break;
+        s.done = true;
+        break;
+    }
+    default:
+        break;
     }
 }
 
-int clientCallback(struct lws* wsi, enum lws_callback_reasons reason, void* /*user*/,
-                   void* in, std::size_t len) {
-    auto* s = static_cast<ClientState*>(lws_context_user(lws_get_context(wsi)));
+int clientCallback(struct lws *wsi, enum lws_callback_reasons reason, void * /*user*/, void *in,
+                   std::size_t len) {
+    auto *s = static_cast<ClientState *>(lws_context_user(lws_get_context(wsi)));
     if (s == nullptr) {
         return 0;
     }
     switch (reason) {
-        case LWS_CALLBACK_CLIENT_ESTABLISHED:
-            s->wsi = wsi;
-            s->step = 1;
-            sendCmd(*s, {"HELLO", "1"});
-            break;
+    case LWS_CALLBACK_CLIENT_ESTABLISHED:
+        s->wsi = wsi;
+        s->step = 1;
+        sendCmd(*s, {"HELLO", "1"});
+        break;
 
-        case LWS_CALLBACK_CLIENT_RECEIVE: {
-            s->rx.append(static_cast<const char*>(in), len);
-            if (lws_is_final_fragment(wsi) && lws_remaining_packet_payload(wsi) == 0) {
-                auto dec = Resp1Codec::decode(s->rx);
-                s->rx.clear();
-                if (dec.status == Resp1Codec::Status::Ok) {
-                    onReply(*s, dec.value);
-                } else {
-                    s->failed = true;
-                    s->done = true;
-                }
+    case LWS_CALLBACK_CLIENT_RECEIVE: {
+        s->rx.append(static_cast<const char *>(in), len);
+        if (lws_is_final_fragment(wsi) && lws_remaining_packet_payload(wsi) == 0) {
+            auto dec = Resp1Codec::decode(s->rx);
+            s->rx.clear();
+            if (dec.status == Resp1Codec::Status::Ok) {
+                onReply(*s, dec.value);
+            } else {
+                s->failed = true;
+                s->done = true;
             }
+        }
+        break;
+    }
+
+    case LWS_CALLBACK_CLIENT_WRITEABLE: {
+        if (s->outbox.empty()) {
             break;
         }
-
-        case LWS_CALLBACK_CLIENT_WRITEABLE: {
-            if (s->outbox.empty()) {
-                break;
-            }
-            std::string msg = std::move(s->outbox.front());
-            s->outbox.pop_front();
-            std::vector<unsigned char> buf(LWS_PRE + msg.size());
-            std::memcpy(buf.data() + LWS_PRE, msg.data(), msg.size());
-            lws_write(wsi, buf.data() + LWS_PRE, msg.size(), LWS_WRITE_BINARY);
-            if (!s->outbox.empty()) {
-                lws_callback_on_writable(wsi);
-            }
-            break;
+        std::string msg = std::move(s->outbox.front());
+        s->outbox.pop_front();
+        std::vector<unsigned char> buf(LWS_PRE + msg.size());
+        std::memcpy(buf.data() + LWS_PRE, msg.data(), msg.size());
+        lws_write(wsi, buf.data() + LWS_PRE, msg.size(), LWS_WRITE_BINARY);
+        if (!s->outbox.empty()) {
+            lws_callback_on_writable(wsi);
         }
+        break;
+    }
 
-        case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
-            s->failed = true;
-            s->done = true;
-            break;
+    case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
+        s->failed = true;
+        s->done = true;
+        break;
 
-        default:
-            break;
+    default:
+        break;
     }
     return 0;
 }
 
-}  // namespace
+} // namespace
 
 int main() {
     core::RuntimeEngine runtime;
@@ -172,7 +172,7 @@ int main() {
 
     IrpServer server(runtime, TEST_PORT);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));  // 待监听就绪
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 待监听就绪
 
     // 客户端 context。
     ClientState state;
@@ -192,7 +192,7 @@ int main() {
     info.uid = -1;
 
     lws_set_log_level(LLL_ERR, nullptr);
-    struct lws_context* ctx = lws_create_context(&info);
+    struct lws_context *ctx = lws_create_context(&info);
     IR_CHECK(ctx != nullptr);
 
     if (ctx != nullptr) {

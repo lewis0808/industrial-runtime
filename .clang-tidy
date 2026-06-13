@@ -1,9 +1,54 @@
+# clang-tidy 配置：工业运行时（C++20）。建议级（不作为错误），命名对齐 CLAUDE.md。
 Checks: >
+  clang-analyzer-*,
   bugprone-*,
   performance-*,
   portability-*,
+  modernize-*,
   readability-*,
-  -readability-magic-numbers
+  misc-*,
+  -readability-magic-numbers,
+  -readability-identifier-length,
+  -readability-function-cognitive-complexity,
+  -modernize-use-trailing-return-type,
+  -modernize-avoid-c-arrays,
+  -modernize-use-nodiscard,
+  -misc-include-cleaner,
+  -misc-non-private-member-variables-in-classes,
+  -bugprone-easily-swappable-parameters
 WarningsAsErrors: ""
-HeaderFilterRegex: ".*"
+# 仅检查本项目源码，排除 vcpkg / 第三方头。
+HeaderFilterRegex: ".*(core|irp|sdk|plugins).*"
 FormatStyle: file
+CheckOptions:
+  # 命名规范（CLAUDE.md）：类 PascalCase、函数/变量 camelCase、常量 UPPER_CASE、私有成员尾 _。
+  - key: readability-identifier-naming.NamespaceCase
+    value: lower_case
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypeAliasCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypedefCase
+    value: CamelCase
+  - key: readability-identifier-naming.FunctionCase
+    value: camelBack
+  - key: readability-identifier-naming.MethodCase
+    value: camelBack
+  - key: readability-identifier-naming.ParameterCase
+    value: camelBack
+  - key: readability-identifier-naming.VariableCase
+    value: camelBack
+  - key: readability-identifier-naming.PrivateMemberCase
+    value: camelBack
+  - key: readability-identifier-naming.PrivateMemberSuffix
+    value: "_"
+  - key: readability-identifier-naming.ClassConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE

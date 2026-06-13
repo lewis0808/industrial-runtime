@@ -21,6 +21,6 @@ int main() {
 
     runtime.stop();
 
-    IR_CHECK(true);  // 走到这里即未崩溃
+    IR_CHECK(true); // 走到这里即未崩溃
     IR_TEST_REPORT();
 }

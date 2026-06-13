@@ -20,10 +20,8 @@ struct TagValue {
 
     /// 由名称与值构造，type 自动从 value 推导，timestamp 默认取当前时间。
     TagValue(std::string tagName, Variant tagValue, Timestamp ts = now())
-        : name(std::move(tagName)),
-          type(dataTypeOf(tagValue)),
-          timestamp(ts),
+        : name(std::move(tagName)), type(dataTypeOf(tagValue)), timestamp(ts),
           value(std::move(tagValue)) {}
 };
 
-}  // namespace core
+} // namespace core

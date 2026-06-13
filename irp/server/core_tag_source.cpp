@@ -17,16 +17,15 @@ struct Encoded {
 };
 
 /// 把定长数值原样拷为字节（主机字节序，x64 为小端）。
-template <typename T>
-std::string rawBytes(T value) {
+template <typename T> std::string rawBytes(T value) {
     std::string s(sizeof(T), '\0');
     std::memcpy(s.data(), &value, sizeof(T));
     return s;
 }
 
-Encoded encodeVariant(const core::Variant& v) {
+Encoded encodeVariant(const core::Variant &v) {
     return std::visit(
-        [](const auto& x) -> Encoded {
+        [](const auto &x) -> Encoded {
             using T = std::decay_t<decltype(x)>;
             if constexpr (std::is_same_v<T, std::monostate>) {
                 return {"null", std::string{}};
@@ -60,33 +59,29 @@ Encoded encodeVariant(const core::Variant& v) {
 }
 
 std::int64_t toNs(core::Timestamp ts) {
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(ts.time_since_epoch())
-        .count();
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(ts.time_since_epoch()).count();
 }
 
-}  // namespace
+} // namespace
 
-std::optional<TagRecord> CoreTagSource::read(const std::string& name) const {
+std::optional<TagRecord> CoreTagSource::read(const std::string &name) const {
     auto tag = engine_->read(name);
     if (!tag) {
         return std::nullopt;
     }
     Encoded enc = encodeVariant(tag->value);
-    return TagRecord{tag->name, std::move(enc.type), toNs(tag->timestamp),
-                     std::move(enc.bytes)};
+    return TagRecord{tag->name, std::move(enc.type), toNs(tag->timestamp), std::move(enc.bytes)};
 }
 
-bool CoreTagSource::exists(const std::string& name) const {
-    return engine_->exists(name);
-}
+bool CoreTagSource::exists(const std::string &name) const { return engine_->exists(name); }
 
-ScanResult CoreTagSource::scan(const std::string& cursor, const std::string& pattern,
+ScanResult CoreTagSource::scan(const std::string &cursor, const std::string &pattern,
                                std::size_t count) const {
     const std::string start = (cursor == "0") ? std::string{} : cursor;
     const std::size_t limit = count == 0 ? 1000 : count;
 
     std::vector<std::string> names;
-    for (const auto& tag : engine_->snapshot()) {
+    for (const auto &tag : engine_->snapshot()) {
         if (tag.name > start && TopicMatcher::matches(pattern, tag.name)) {
             names.push_back(tag.name);
         }
@@ -96,7 +91,7 @@ ScanResult CoreTagSource::scan(const std::string& cursor, const std::string& pat
     ScanResult result;
     if (names.size() <= limit) {
         result.names = std::move(names);
-        result.nextCursor = "0";  // 遍历结束
+        result.nextCursor = "0"; // 遍历结束
     } else {
         result.names.assign(names.begin(), names.begin() + static_cast<std::ptrdiff_t>(limit));
         result.nextCursor = result.names.back();
@@ -104,4 +99,4 @@ ScanResult CoreTagSource::scan(const std::string& cursor, const std::string& pat
     return result;
 }
 
-}  // namespace irp
+} // namespace irp

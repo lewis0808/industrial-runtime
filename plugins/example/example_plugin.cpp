@@ -7,8 +7,8 @@
 namespace {
 
 class ExamplePlugin final : public irplugin::IPlugin {
-public:
-    explicit ExamplePlugin(const IrPluginHostApi* host) noexcept : host_(host) {}
+  public:
+    explicit ExamplePlugin(const IrPluginHostApi *host) noexcept : host_(host) {}
 
     bool init() override { return host_.valid(); }
 
@@ -29,16 +29,16 @@ public:
         return true;
     }
 
-private:
+  private:
     irplugin::Host host_;
 };
 
-}  // namespace
+} // namespace
 
 IRPLUGIN_EXPORT IrPluginInfo getPluginInfo() {
     return IrPluginInfo{IRPLUGIN_ABI_VERSION, "example", "Example Plugin", "1.0.0"};
 }
 
-IRPLUGIN_EXPORT irplugin::IPlugin* createPlugin(const IrPluginHostApi* host) {
+IRPLUGIN_EXPORT irplugin::IPlugin *createPlugin(const IrPluginHostApi *host) {
     return new ExamplePlugin(host);
 }

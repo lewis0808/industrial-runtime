@@ -15,7 +15,7 @@ namespace irp {
 /// 匹配复杂度与层级深度相关而非 Tag 总数，适配十万~百万级 Tag。
 /// 通配符语义见 TopicMatcher（`+` 单层、`#` 多层末段）。线程不安全，由上层串行使用。
 class TopicTrie {
-public:
+  public:
     using SubscriberId = std::uint64_t;
 
     /// 订阅一个模式。pattern 非法返回 false。
@@ -36,18 +36,18 @@ public:
     /// 某订阅者当前注册的模式数。
     [[nodiscard]] std::size_t countFor(SubscriberId id) const;
 
-private:
+  private:
     struct Node {
-        std::unordered_map<std::string, std::unique_ptr<Node>> children;  ///< 字面段与 "+"
-        std::unique_ptr<Node> hashChild;                                  ///< "#"
-        std::set<SubscriberId> subscribers;                               ///< 终止于此的订阅者
+        std::unordered_map<std::string, std::unique_ptr<Node>> children; ///< 字面段与 "+"
+        std::unique_ptr<Node> hashChild;                                 ///< "#"
+        std::set<SubscriberId> subscribers;                              ///< 终止于此的订阅者
     };
 
-    static void collect(const Node* node, const std::vector<std::string_view>& segs,
-                        std::size_t idx, std::set<SubscriberId>& out);
+    static void collect(const Node *node, const std::vector<std::string_view> &segs,
+                        std::size_t idx, std::set<SubscriberId> &out);
 
     Node root_;
-    std::unordered_map<SubscriberId, std::set<std::string>> idPatterns_;  ///< 反向索引
+    std::unordered_map<SubscriberId, std::set<std::string>> idPatterns_; ///< 反向索引
 };
 
-}  // namespace irp
+} // namespace irp

@@ -23,7 +23,7 @@ namespace irplugin {
 /// 生命周期：createPlugin -> init -> start -> ... -> stop -> destroy。
 /// destroy() 通常实现为 `delete this`，以确保在插件自己的堆上释放。
 class IPlugin {
-public:
+  public:
     virtual ~IPlugin() = default;
 
     virtual bool init() = 0;
@@ -36,9 +36,9 @@ public:
 ///
 /// 所有 push* 为同步调用，宿主在返回前完成拷贝，故栈上临时结构与字符串视图安全。
 class Host {
-public:
+  public:
     Host() = default;
-    explicit Host(const IrPluginHostApi* api) noexcept : api_(api) {}
+    explicit Host(const IrPluginHostApi *api) noexcept : api_(api) {}
 
     [[nodiscard]] bool valid() const noexcept {
         return api_ != nullptr && api_->push_tag != nullptr;
@@ -56,8 +56,7 @@ public:
     }
 
     /// 推送字符串 Tag。
-    bool pushTag(std::string_view name, std::string_view value,
-                 int64_t timestampNs = 0) const {
+    bool pushTag(std::string_view name, std::string_view value, int64_t timestampNs = 0) const {
         IrPluginTagValue tag{};
         tag.name = {name.data(), name.size()};
         tag.timestamp_ns = timestampNs;
@@ -67,10 +66,8 @@ public:
     }
 
     /// 推送事件。
-    bool pushEvent(std::string_view source, std::string_view category,
-                   std::string_view message,
-                   IrPluginSeverity severity = IRPLUGIN_SEV_INFO,
-                   int64_t timestampNs = 0) const {
+    bool pushEvent(std::string_view source, std::string_view category, std::string_view message,
+                   IrPluginSeverity severity = IRPLUGIN_SEV_INFO, int64_t timestampNs = 0) const {
         IrPluginEvent ev{};
         ev.source = {source.data(), source.size()};
         ev.category = {category.data(), category.size()};
@@ -81,9 +78,8 @@ public:
     }
 
     /// 推送一帧流数据。
-    bool pushStream(std::string_view source, IrPluginStreamType type,
-                    const uint8_t* payload, size_t payloadLen,
-                    int64_t timestampNs = 0) const {
+    bool pushStream(std::string_view source, IrPluginStreamType type, const uint8_t *payload,
+                    size_t payloadLen, int64_t timestampNs = 0) const {
         IrPluginStreamFrame frame{};
         frame.source = {source.data(), source.size()};
         frame.type = static_cast<int32_t>(type);
@@ -93,9 +89,8 @@ public:
         return api_->push_stream(api_->ctx, &frame) != 0;
     }
 
-private:
-    template <typename T>
-    static void fillVariant(IrPluginVariant& v, T value) noexcept {
+  private:
+    template <typename T> static void fillVariant(IrPluginVariant &v, T value) noexcept {
         if constexpr (std::is_same_v<T, bool>) {
             v.type = IRPLUGIN_TYPE_BOOL;
             v.as.boolean = value ? 1 : 0;
@@ -106,23 +101,41 @@ private:
             v.type = IRPLUGIN_TYPE_DOUBLE;
             v.as.f64 = value;
         } else if constexpr (std::is_integral_v<T> && std::is_signed_v<T>) {
-            if constexpr (sizeof(T) == 1) { v.type = IRPLUGIN_TYPE_INT8;  v.as.i8 = value; }
-            else if constexpr (sizeof(T) == 2) { v.type = IRPLUGIN_TYPE_INT16; v.as.i16 = value; }
-            else if constexpr (sizeof(T) == 4) { v.type = IRPLUGIN_TYPE_INT32; v.as.i32 = value; }
-            else { v.type = IRPLUGIN_TYPE_INT64; v.as.i64 = static_cast<int64_t>(value); }
-        } else {  // 无符号整型
-            if constexpr (sizeof(T) == 1) { v.type = IRPLUGIN_TYPE_UINT8;  v.as.u8 = value; }
-            else if constexpr (sizeof(T) == 2) { v.type = IRPLUGIN_TYPE_UINT16; v.as.u16 = value; }
-            else if constexpr (sizeof(T) == 4) { v.type = IRPLUGIN_TYPE_UINT32; v.as.u32 = value; }
-            else { v.type = IRPLUGIN_TYPE_UINT64; v.as.u64 = static_cast<uint64_t>(value); }
+            if constexpr (sizeof(T) == 1) {
+                v.type = IRPLUGIN_TYPE_INT8;
+                v.as.i8 = value;
+            } else if constexpr (sizeof(T) == 2) {
+                v.type = IRPLUGIN_TYPE_INT16;
+                v.as.i16 = value;
+            } else if constexpr (sizeof(T) == 4) {
+                v.type = IRPLUGIN_TYPE_INT32;
+                v.as.i32 = value;
+            } else {
+                v.type = IRPLUGIN_TYPE_INT64;
+                v.as.i64 = static_cast<int64_t>(value);
+            }
+        } else { // 无符号整型
+            if constexpr (sizeof(T) == 1) {
+                v.type = IRPLUGIN_TYPE_UINT8;
+                v.as.u8 = value;
+            } else if constexpr (sizeof(T) == 2) {
+                v.type = IRPLUGIN_TYPE_UINT16;
+                v.as.u16 = value;
+            } else if constexpr (sizeof(T) == 4) {
+                v.type = IRPLUGIN_TYPE_UINT32;
+                v.as.u32 = value;
+            } else {
+                v.type = IRPLUGIN_TYPE_UINT64;
+                v.as.u64 = static_cast<uint64_t>(value);
+            }
         }
     }
 
-    const IrPluginHostApi* api_ = nullptr;
+    const IrPluginHostApi *api_ = nullptr;
 };
 
 /// 宿主侧用于解析导出函数的指针类型。
 using GetPluginInfoFn = IrPluginInfo (*)();
-using CreatePluginFn = IPlugin* (*)(const IrPluginHostApi*);
+using CreatePluginFn = IPlugin *(*)(const IrPluginHostApi *);
 
-}  // namespace irplugin
+} // namespace irplugin

@@ -15,16 +15,16 @@ namespace irp {
 ///
 /// 注意：数值以主机字节序写入（目标平台 x64 为小端）。
 class CoreTagSource final : public TagSource {
-public:
-    explicit CoreTagSource(const core::TagEngine& engine) noexcept : engine_(&engine) {}
+  public:
+    explicit CoreTagSource(const core::TagEngine &engine) noexcept : engine_(&engine) {}
 
-    [[nodiscard]] std::optional<TagRecord> read(const std::string& name) const override;
-    [[nodiscard]] bool exists(const std::string& name) const override;
-    [[nodiscard]] ScanResult scan(const std::string& cursor, const std::string& pattern,
+    [[nodiscard]] std::optional<TagRecord> read(const std::string &name) const override;
+    [[nodiscard]] bool exists(const std::string &name) const override;
+    [[nodiscard]] ScanResult scan(const std::string &cursor, const std::string &pattern,
                                   std::size_t count) const override;
 
-private:
-    const core::TagEngine* engine_;
+  private:
+    const core::TagEngine *engine_;
 };
 
-}  // namespace irp
+} // namespace irp

@@ -12,7 +12,7 @@ namespace core {
 
 namespace {
 
-void* openLibrary(const std::string& path) {
+void *openLibrary(const std::string &path) {
 #if defined(_WIN32)
     return ::LoadLibraryA(path.c_str());
 #else
@@ -20,7 +20,7 @@ void* openLibrary(const std::string& path) {
 #endif
 }
 
-void closeLibrary(void* handle) {
+void closeLibrary(void *handle) {
 #if defined(_WIN32)
     ::FreeLibrary(static_cast<HMODULE>(handle));
 #else
@@ -28,24 +28,22 @@ void closeLibrary(void* handle) {
 #endif
 }
 
-void* findSymbol(void* handle, const char* name) {
+void *findSymbol(void *handle, const char *name) {
 #if defined(_WIN32)
-    return reinterpret_cast<void*>(::GetProcAddress(static_cast<HMODULE>(handle), name));
+    return reinterpret_cast<void *>(::GetProcAddress(static_cast<HMODULE>(handle), name));
 #else
     return ::dlsym(handle, name);
 #endif
 }
 
-}  // namespace
+} // namespace
 
-PluginManager::PluginManager(const IrPluginHostApi* host) noexcept : host_(host) {}
+PluginManager::PluginManager(const IrPluginHostApi *host) noexcept : host_(host) {}
 
-PluginManager::~PluginManager() {
-    unloadAll();
-}
+PluginManager::~PluginManager() { unloadAll(); }
 
-bool PluginManager::load(const std::string& path) {
-    void* handle = openLibrary(path);
+bool PluginManager::load(const std::string &path) {
+    void *handle = openLibrary(path);
     if (handle == nullptr) {
         IR_LOG_ERROR("插件加载失败，无法打开动态库: {}", path);
         return false;
@@ -53,8 +51,8 @@ bool PluginManager::load(const std::string& path) {
 
     auto getInfo = reinterpret_cast<irplugin::GetPluginInfoFn>(
         findSymbol(handle, IRPLUGIN_SYM_GET_PLUGIN_INFO));
-    auto createPlugin = reinterpret_cast<irplugin::CreatePluginFn>(
-        findSymbol(handle, IRPLUGIN_SYM_CREATE_PLUGIN));
+    auto createPlugin =
+        reinterpret_cast<irplugin::CreatePluginFn>(findSymbol(handle, IRPLUGIN_SYM_CREATE_PLUGIN));
     if (getInfo == nullptr || createPlugin == nullptr) {
         IR_LOG_ERROR("插件缺少导出符号 {}/{}: {}", IRPLUGIN_SYM_GET_PLUGIN_INFO,
                      IRPLUGIN_SYM_CREATE_PLUGIN, path);
@@ -64,13 +62,13 @@ bool PluginManager::load(const std::string& path) {
 
     const IrPluginInfo info = getInfo();
     if (info.abi_version != IRPLUGIN_ABI_VERSION) {
-        IR_LOG_ERROR("插件 ABI 版本不匹配（插件 {} != 宿主 {}）: {}",
-                     info.abi_version, IRPLUGIN_ABI_VERSION, path);
+        IR_LOG_ERROR("插件 ABI 版本不匹配（插件 {} != 宿主 {}）: {}", info.abi_version,
+                     IRPLUGIN_ABI_VERSION, path);
         closeLibrary(handle);
         return false;
     }
 
-    irplugin::IPlugin* plugin = createPlugin(host_);
+    irplugin::IPlugin *plugin = createPlugin(host_);
     if (plugin == nullptr) {
         IR_LOG_ERROR("插件 createPlugin 返回空: {}", path);
         closeLibrary(handle);
@@ -92,7 +90,7 @@ bool PluginManager::load(const std::string& path) {
 
 bool PluginManager::startAll() {
     bool ok = true;
-    for (auto& p : plugins_) {
+    for (auto &p : plugins_) {
         if (!p.started) {
             if (p.plugin->start()) {
                 p.started = true;
@@ -107,7 +105,7 @@ bool PluginManager::startAll() {
 
 bool PluginManager::stopAll() {
     bool ok = true;
-    for (auto& p : plugins_) {
+    for (auto &p : plugins_) {
         if (p.started) {
             if (!p.plugin->stop()) {
                 ok = false;
@@ -133,7 +131,7 @@ void PluginManager::unloadAll() noexcept {
                 it->plugin->stop();
                 it->started = false;
             }
-            it->plugin->destroy();  // 在插件自身堆上释放
+            it->plugin->destroy(); // 在插件自身堆上释放
             it->plugin = nullptr;
         }
         if (it->handle != nullptr) {
@@ -144,4 +142,4 @@ void PluginManager::unloadAll() noexcept {
     plugins_.clear();
 }
 
-}  // namespace core
+} // namespace core

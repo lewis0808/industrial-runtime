@@ -23,13 +23,11 @@ namespace {
 
 std::atomic<bool> g_running{true};
 
-void handleSignal(int) {
-    g_running.store(false, std::memory_order_relaxed);
-}
+void handleSignal(int) { g_running.store(false, std::memory_order_relaxed); }
 
-}  // namespace
+} // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 #if defined(_WIN32)
     // 控制台按 UTF-8 渲染日志（源码与日志均为 UTF-8，避免中文乱码）。
     SetConsoleOutputCP(CP_UTF8);
@@ -49,9 +47,9 @@ int main(int argc, char** argv) {
     runtime.init(config);
 
     // 订阅事件用于演示。
-    runtime.events().subscribe([](const core::Event& e) {
-        IR_LOG_INFO("[事件] [{}] {}: {}", core::eventSeverityName(e.severity),
-                    e.category, e.message);
+    runtime.events().subscribe([](const core::Event &e) {
+        IR_LOG_INFO("[事件] [{}] {}: {}", core::eventSeverityName(e.severity), e.category,
+                    e.message);
     });
 
     runtime.start();
@@ -62,15 +60,13 @@ int main(int argc, char** argv) {
     irpServer.start();
 
     // 示例：每秒采集一个心跳 Tag 并发布一次状态事件。
-    runtime.scheduler().addPeriodicTask(
-        "heartbeat", std::chrono::seconds(1), [&runtime] {
-            static std::int64_t counter = 0;
-            ++counter;
-            runtime.pushTag(core::TagValue{"system/heartbeat", counter});
-            runtime.pushEvent(core::Event{"runtime", "state",
-                                          "heartbeat #" + std::to_string(counter),
-                                          core::EventSeverity::Info});
-        });
+    runtime.scheduler().addPeriodicTask("heartbeat", std::chrono::seconds(1), [&runtime] {
+        static std::int64_t counter = 0;
+        ++counter;
+        runtime.pushTag(core::TagValue{"system/heartbeat", counter});
+        runtime.pushEvent(core::Event{"runtime", "state", "heartbeat #" + std::to_string(counter),
+                                      core::EventSeverity::Info});
+    });
 
     IR_LOG_INFO("运行时已就绪，按 Ctrl+C 退出");
     while (g_running.load(std::memory_order_relaxed)) {

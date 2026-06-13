@@ -10,24 +10,31 @@ namespace core {
 
 namespace {
 
-constexpr const char* LOGGER_NAME = "runtime";
+constexpr const char *LOGGER_NAME = "runtime";
 
 spdlog::level::level_enum toSpdLevel(LogLevel level) noexcept {
     switch (level) {
-        case LogLevel::Trace:    return spdlog::level::trace;
-        case LogLevel::Debug:    return spdlog::level::debug;
-        case LogLevel::Info:     return spdlog::level::info;
-        case LogLevel::Warn:     return spdlog::level::warn;
-        case LogLevel::Error:    return spdlog::level::err;
-        case LogLevel::Critical: return spdlog::level::critical;
-        case LogLevel::Off:      return spdlog::level::off;
+    case LogLevel::Trace:
+        return spdlog::level::trace;
+    case LogLevel::Debug:
+        return spdlog::level::debug;
+    case LogLevel::Info:
+        return spdlog::level::info;
+    case LogLevel::Warn:
+        return spdlog::level::warn;
+    case LogLevel::Error:
+        return spdlog::level::err;
+    case LogLevel::Critical:
+        return spdlog::level::critical;
+    case LogLevel::Off:
+        return spdlog::level::off;
     }
     return spdlog::level::info;
 }
 
 std::mutex g_initMutex;
 
-std::shared_ptr<spdlog::logger> buildLogger(const LoggerConfig& config) {
+std::shared_ptr<spdlog::logger> buildLogger(const LoggerConfig &config) {
     std::vector<spdlog::sink_ptr> sinks;
 
     if (config.toConsole) {
@@ -38,17 +45,16 @@ std::shared_ptr<spdlog::logger> buildLogger(const LoggerConfig& config) {
             config.filePath, config.maxFileSize, config.maxFiles));
     }
 
-    auto logger = std::make_shared<spdlog::logger>(
-        LOGGER_NAME, sinks.begin(), sinks.end());
+    auto logger = std::make_shared<spdlog::logger>(LOGGER_NAME, sinks.begin(), sinks.end());
     logger->set_pattern(config.pattern);
     logger->set_level(toSpdLevel(config.level));
     logger->flush_on(spdlog::level::warn);
     return logger;
 }
 
-}  // namespace
+} // namespace
 
-void Logger::init(const LoggerConfig& config) {
+void Logger::init(const LoggerConfig &config) {
     std::lock_guard<std::mutex> lock(g_initMutex);
     auto logger = buildLogger(config);
     // 替换默认 logger，使后续 get() 取到最新配置。
@@ -68,12 +74,8 @@ std::shared_ptr<spdlog::logger> Logger::get() {
     return spdlog::default_logger();
 }
 
-void Logger::setLevel(LogLevel level) {
-    get()->set_level(toSpdLevel(level));
-}
+void Logger::setLevel(LogLevel level) { get()->set_level(toSpdLevel(level)); }
 
-void Logger::flush() {
-    get()->flush();
-}
+void Logger::flush() { get()->flush(); }
 
-}  // namespace core
+} // namespace core

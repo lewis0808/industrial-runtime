@@ -23,23 +23,26 @@ struct PerSession {
     std::uint64_t id;
 };
 
-const char* severityLower(core::EventSeverity s) {
+const char *severityLower(core::EventSeverity s) {
     switch (s) {
-        case core::EventSeverity::Warning:  return "warning";
-        case core::EventSeverity::Alarm:    return "alarm";
-        case core::EventSeverity::Critical: return "critical";
-        case core::EventSeverity::Info:
-        default:                            return "info";
+    case core::EventSeverity::Warning:
+        return "warning";
+    case core::EventSeverity::Alarm:
+        return "alarm";
+    case core::EventSeverity::Critical:
+        return "critical";
+    case core::EventSeverity::Info:
+    default:
+        return "info";
     }
 }
 
-std::int64_t eventNs(const core::Event& e) {
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(
-               e.timestamp.time_since_epoch())
+std::int64_t eventNs(const core::Event &e) {
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(e.timestamp.time_since_epoch())
         .count();
 }
 
-std::string encodePushTag(const TagRecord& rec) {
+std::string encodePushTag(const TagRecord &rec) {
     RespMap m;
     m.entries.emplace_back(makeBulk("push"), makeBulk("tag"));
     m.entries.emplace_back(makeBulk("name"), makeBulk(rec.name));
@@ -49,7 +52,7 @@ std::string encodePushTag(const TagRecord& rec) {
     return Resp1Codec::encode(m);
 }
 
-std::string encodePushEvent(const core::Event& e) {
+std::string encodePushEvent(const core::Event &e) {
     RespMap m;
     m.entries.emplace_back(makeBulk("push"), makeBulk("event"));
     m.entries.emplace_back(makeBulk("source"), makeBulk(e.source));
@@ -60,51 +63,49 @@ std::string encodePushEvent(const core::Event& e) {
     return Resp1Codec::encode(m);
 }
 
-bool isByeCommand(const RespValue& request) {
-    const auto* arr = std::get_if<RespArray>(&request);
+bool isByeCommand(const RespValue &request) {
+    const auto *arr = std::get_if<RespArray>(&request);
     if (arr == nullptr || arr->items.empty()) {
         return false;
     }
-    const auto* b = std::get_if<RespBulk>(&arr->items[0]);
+    const auto *b = std::get_if<RespBulk>(&arr->items[0]);
     if (b == nullptr) {
         return false;
     }
     std::string name = b->data;
-    for (auto& c : name) {
+    for (auto &c : name) {
         c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
     }
     return name == "BYE";
 }
 
 /// C 回调：转发到 IrpServer 实例。
-int irpLwsCallback(struct lws* wsi, enum lws_callback_reasons reason, void* user,
-                   void* in, std::size_t len) {
-    auto* self = static_cast<IrpServer*>(lws_context_user(lws_get_context(wsi)));
+int irpLwsCallback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in,
+                   std::size_t len) {
+    auto *self = static_cast<IrpServer *>(lws_context_user(lws_get_context(wsi)));
     if (self == nullptr) {
         return 0;
     }
     return self->dispatchCallback(wsi, static_cast<int>(reason), user, in, len);
 }
 
-}  // namespace
+} // namespace
 
-IrpServer::IrpServer(core::RuntimeEngine& runtime, std::uint16_t port)
+IrpServer::IrpServer(core::RuntimeEngine &runtime, std::uint16_t port)
     : runtime_(&runtime), tagSource_(runtime.tags()), dispatcher_(tagSource_), port_(port) {}
 
-IrpServer::~IrpServer() {
-    stop();
-}
+IrpServer::~IrpServer() { stop(); }
 
-IrpServer::Conn* IrpServer::connFor(void* user) {
+IrpServer::Conn *IrpServer::connFor(void *user) {
     if (user == nullptr) {
         return nullptr;
     }
-    const auto id = static_cast<PerSession*>(user)->id;
+    const auto id = static_cast<PerSession *>(user)->id;
     auto it = conns_.find(id);
     return it == conns_.end() ? nullptr : it->second.get();
 }
 
-void IrpServer::processFrame(Conn& conn, const std::string& frame) {
+void IrpServer::processFrame(Conn &conn, const std::string &frame) {
     auto dec = Resp1Codec::decode(frame);
     if (dec.status != Resp1Codec::Status::Ok) {
         conn.outbox.push_back(Resp1Codec::encode(makeError("PROTOCOL_ERROR", "bad frame")));
@@ -119,86 +120,85 @@ void IrpServer::processFrame(Conn& conn, const std::string& frame) {
     }
 }
 
-int IrpServer::dispatchCallback(lws* wsi, int reason, void* user, void* in,
-                                std::size_t len) {
+int IrpServer::dispatchCallback(lws *wsi, int reason, void *user, void *in, std::size_t len) {
     switch (reason) {
-        case LWS_CALLBACK_ESTABLISHED: {
-            std::lock_guard<std::mutex> lk(mutex_);
-            auto* ps = static_cast<PerSession*>(user);
-            const std::uint64_t id = nextConnId_++;
-            ps->id = id;
-            auto conn = std::make_unique<Conn>();
-            conn->id = id;
-            conn->wsi = wsi;
-            conn->session.id = id;
-            conns_[id] = std::move(conn);
+    case LWS_CALLBACK_ESTABLISHED: {
+        std::lock_guard<std::mutex> lk(mutex_);
+        auto *ps = static_cast<PerSession *>(user);
+        const std::uint64_t id = nextConnId_++;
+        ps->id = id;
+        auto conn = std::make_unique<Conn>();
+        conn->id = id;
+        conn->wsi = wsi;
+        conn->session.id = id;
+        conns_[id] = std::move(conn);
+        break;
+    }
+
+    case LWS_CALLBACK_RECEIVE: {
+        std::lock_guard<std::mutex> lk(mutex_);
+        Conn *conn = connFor(user);
+        if (conn == nullptr) {
             break;
         }
+        conn->rx.append(static_cast<const char *>(in), len);
+        if (lws_is_final_fragment(wsi) && lws_remaining_packet_payload(wsi) == 0) {
+            std::string frame = std::move(conn->rx);
+            conn->rx.clear();
+            processFrame(*conn, frame);
+            lws_callback_on_writable(wsi);
+        }
+        break;
+    }
 
-        case LWS_CALLBACK_RECEIVE: {
-            std::lock_guard<std::mutex> lk(mutex_);
-            Conn* conn = connFor(user);
-            if (conn == nullptr) {
-                break;
-            }
-            conn->rx.append(static_cast<const char*>(in), len);
-            if (lws_is_final_fragment(wsi) && lws_remaining_packet_payload(wsi) == 0) {
-                std::string frame = std::move(conn->rx);
-                conn->rx.clear();
-                processFrame(*conn, frame);
-                lws_callback_on_writable(wsi);
-            }
+    case LWS_CALLBACK_SERVER_WRITEABLE: {
+        std::lock_guard<std::mutex> lk(mutex_);
+        Conn *conn = connFor(user);
+        if (conn == nullptr) {
             break;
         }
+        if (conn->outbox.empty()) {
+            return conn->closeAfterWrite ? -1 : 0;
+        }
+        std::string msg = std::move(conn->outbox.front());
+        conn->outbox.pop_front();
+        std::vector<unsigned char> buf(LWS_PRE + msg.size());
+        std::memcpy(buf.data() + LWS_PRE, msg.data(), msg.size());
+        const int n = lws_write(wsi, buf.data() + LWS_PRE, msg.size(), LWS_WRITE_BINARY);
+        if (n < static_cast<int>(msg.size())) {
+            return -1; // 写失败
+        }
+        if (!conn->outbox.empty()) {
+            lws_callback_on_writable(wsi);
+        } else if (conn->closeAfterWrite) {
+            return -1;
+        }
+        break;
+    }
 
-        case LWS_CALLBACK_SERVER_WRITEABLE: {
-            std::lock_guard<std::mutex> lk(mutex_);
-            Conn* conn = connFor(user);
-            if (conn == nullptr) {
-                break;
-            }
-            if (conn->outbox.empty()) {
-                return conn->closeAfterWrite ? -1 : 0;
-            }
-            std::string msg = std::move(conn->outbox.front());
-            conn->outbox.pop_front();
-            std::vector<unsigned char> buf(LWS_PRE + msg.size());
-            std::memcpy(buf.data() + LWS_PRE, msg.data(), msg.size());
-            const int n = lws_write(wsi, buf.data() + LWS_PRE, msg.size(), LWS_WRITE_BINARY);
-            if (n < static_cast<int>(msg.size())) {
-                return -1;  // 写失败
-            }
+    case LWS_CALLBACK_EVENT_WAIT_CANCELLED: {
+        // 被 lws_cancel_service 唤醒：为有积压的连接请求可写。
+        std::lock_guard<std::mutex> lk(mutex_);
+        for (auto &[id, conn] : conns_) {
             if (!conn->outbox.empty()) {
-                lws_callback_on_writable(wsi);
-            } else if (conn->closeAfterWrite) {
-                return -1;
+                lws_callback_on_writable(conn->wsi);
             }
-            break;
         }
+        break;
+    }
 
-        case LWS_CALLBACK_EVENT_WAIT_CANCELLED: {
-            // 被 lws_cancel_service 唤醒：为有积压的连接请求可写。
-            std::lock_guard<std::mutex> lk(mutex_);
-            for (auto& [id, conn] : conns_) {
-                if (!conn->outbox.empty()) {
-                    lws_callback_on_writable(conn->wsi);
-                }
-            }
-            break;
+    case LWS_CALLBACK_CLOSED: {
+        std::lock_guard<std::mutex> lk(mutex_);
+        if (user != nullptr) {
+            const auto id = static_cast<PerSession *>(user)->id;
+            dispatcher_.onSessionClosed(id);
+            conns_.erase(id);
         }
+        break;
+    }
 
-        case LWS_CALLBACK_CLOSED: {
-            std::lock_guard<std::mutex> lk(mutex_);
-            if (user != nullptr) {
-                const auto id = static_cast<PerSession*>(user)->id;
-                dispatcher_.onSessionClosed(id);
-                conns_.erase(id);
-            }
-            break;
-        }
-
-        default:
-            break;
+    default:
+        break;
     }
     return 0;
 }
@@ -209,7 +209,7 @@ void IrpServer::serviceLoop(std::stop_token stopToken) {
     }
 }
 
-void IrpServer::routeTag(const std::string& name) {
+void IrpServer::routeTag(const std::string &name) {
     {
         std::lock_guard<std::mutex> lk(mutex_);
         const auto ids = dispatcher_.tagSubscribers(name);
@@ -233,7 +233,7 @@ void IrpServer::routeTag(const std::string& name) {
     }
 }
 
-void IrpServer::onEvent(const core::Event& event) {
+void IrpServer::onEvent(const core::Event &event) {
     {
         std::lock_guard<std::mutex> lk(mutex_);
         const auto ids =
@@ -285,10 +285,8 @@ void IrpServer::start() {
     service_ = std::jthread([this](std::stop_token st) { serviceLoop(st); });
 
     // 注册 core 回调（推送来源）。
-    runtime_->tags().setChangeCallback(
-        [this](const core::TagValue& tag) { routeTag(tag.name); });
-    eventSubId_ = runtime_->events().subscribe(
-        [this](const core::Event& e) { onEvent(e); });
+    runtime_->tags().setChangeCallback([this](const core::TagValue &tag) { routeTag(tag.name); });
+    eventSubId_ = runtime_->events().subscribe([this](const core::Event &e) { onEvent(e); });
 
     IR_LOG_INFO("IRP server 监听 ws://0.0.0.0:{}", port_);
 }
@@ -308,7 +306,7 @@ void IrpServer::stop() {
 
     service_.request_stop();
     if (context_ != nullptr) {
-        lws_cancel_service(context_);  // 唤醒服务线程以便退出
+        lws_cancel_service(context_); // 唤醒服务线程以便退出
     }
     if (service_.joinable()) {
         service_.join();
@@ -320,4 +318,4 @@ void IrpServer::stop() {
     IR_LOG_INFO("IRP server 已停止");
 }
 
-}  // namespace irp
+} // namespace irp

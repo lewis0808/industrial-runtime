@@ -23,8 +23,7 @@ int main() {
         RespArray arr;
         arr.items.push_back(makeBulk("GET"));
         arr.items.push_back(makeBulk("a/b"));
-        IR_CHECK(Resp1Codec::encode(arr) ==
-                 std::string("*2\r\n$3\r\nGET\r\n$3\r\na/b\r\n"));
+        IR_CHECK(Resp1Codec::encode(arr) == std::string("*2\r\n$3\r\nGET\r\n$3\r\na/b\r\n"));
     }
 
     // map：%1 k -> 1
@@ -50,7 +49,7 @@ int main() {
     {
         auto r = Resp1Codec::decode("-WRONG_ARITY too many\r\n");
         IR_CHECK(r.status == Status::Ok);
-        const auto& e = std::get<RespError>(r.value);
+        const auto &e = std::get<RespError>(r.value);
         IR_CHECK(e.code == "WRONG_ARITY");
         IR_CHECK(e.message == "too many");
     }
@@ -78,7 +77,7 @@ int main() {
         arr.items.push_back(makeNull());
         auto r = Resp1Codec::decode(Resp1Codec::encode(arr));
         IR_CHECK(r.status == Status::Ok);
-        const auto& a = std::get<RespArray>(r.value);
+        const auto &a = std::get<RespArray>(r.value);
         IR_CHECK_EQ(a.items.size(), std::size_t{3});
         IR_CHECK(std::get<RespBulk>(a.items[0]).data == "MGET");
         IR_CHECK(std::holds_alternative<RespNull>(a.items[2]));
@@ -90,10 +89,11 @@ int main() {
         m.entries.emplace_back(makeBulk("name"), makeBulk("a/b/c"));
         m.entries.emplace_back(makeBulk("type"), makeBulk("f64"));
         m.entries.emplace_back(makeBulk("ts"), makeInteger(1749800000000000000LL));
-        m.entries.emplace_back(makeBulk("value"), makeBulk(std::string("\x00\x00\x00\x00\x00\x00\x00\x40", 8)));
+        m.entries.emplace_back(makeBulk("value"),
+                               makeBulk(std::string("\x00\x00\x00\x00\x00\x00\x00\x40", 8)));
         auto r = Resp1Codec::decode(Resp1Codec::encode(m));
         IR_CHECK(r.status == Status::Ok);
-        const auto& rm = std::get<RespMap>(r.value);
+        const auto &rm = std::get<RespMap>(r.value);
         IR_CHECK_EQ(rm.entries.size(), std::size_t{4});
         IR_CHECK(std::get<RespBulk>(rm.entries[0].first).data == "name");
         IR_CHECK(std::get<RespInteger>(rm.entries[2].second).value == 1749800000000000000LL);
@@ -102,9 +102,10 @@ int main() {
 
     // ---- 不完整 ----
     {
-        IR_CHECK(Resp1Codec::decode("$4\r\nab").status == Status::Incomplete);   // 数据不足
-        IR_CHECK(Resp1Codec::decode("*2\r\n$3\r\nGET\r\n").status == Status::Incomplete);  // 缺第二个元素
-        IR_CHECK(Resp1Codec::decode("+OK").status == Status::Incomplete);        // 无 CRLF
+        IR_CHECK(Resp1Codec::decode("$4\r\nab").status == Status::Incomplete); // 数据不足
+        IR_CHECK(Resp1Codec::decode("*2\r\n$3\r\nGET\r\n").status ==
+                 Status::Incomplete);                                     // 缺第二个元素
+        IR_CHECK(Resp1Codec::decode("+OK").status == Status::Incomplete); // 无 CRLF
     }
 
     // ---- 坏帧 ----

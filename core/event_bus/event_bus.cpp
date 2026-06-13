@@ -7,14 +7,12 @@ namespace core {
 
 EventBus::EventBus(std::size_t queueCapacity) : queue_(queueCapacity) {}
 
-EventBus::~EventBus() {
-    stop();
-}
+EventBus::~EventBus() { stop(); }
 
 void EventBus::start() {
     bool expected = false;
     if (!running_.compare_exchange_strong(expected, true)) {
-        return;  // 已启动
+        return; // 已启动
     }
     worker_ = std::jthread([this](std::stop_token st) { dispatchLoop(st); });
 }
@@ -22,16 +20,16 @@ void EventBus::start() {
 void EventBus::stop() {
     bool expected = true;
     if (!running_.compare_exchange_strong(expected, false)) {
-        return;  // 未启动或已停止
+        return; // 未启动或已停止
     }
     worker_.request_stop();
-    signal_.release();  // 唤醒可能阻塞在 acquire 的派发线程
+    signal_.release(); // 唤醒可能阻塞在 acquire 的派发线程
     if (worker_.joinable()) {
         worker_.join();
     }
 }
 
-bool EventBus::publish(const Event& event) {
+bool EventBus::publish(const Event &event) {
     if (!queue_.tryEnqueue(event)) {
         dropped_.fetch_add(1, std::memory_order_relaxed);
         return false;
@@ -40,7 +38,7 @@ bool EventBus::publish(const Event& event) {
     return true;
 }
 
-bool EventBus::publish(Event&& event) {
+bool EventBus::publish(Event &&event) {
     if (!queue_.tryEnqueue(std::move(event))) {
         dropped_.fetch_add(1, std::memory_order_relaxed);
         return false;
@@ -84,14 +82,14 @@ void EventBus::dispatchLoop(std::stop_token stopToken) {
     }
 }
 
-void EventBus::deliver(const Event& event) {
+void EventBus::deliver(const Event &event) {
     // 拷贝一份订阅快照，缩短持锁时间，避免回调内重入死锁。
     std::vector<Subscription> snapshot;
     {
         std::lock_guard<std::mutex> lock(subsMutex_);
         snapshot = subscriptions_;
     }
-    for (const auto& sub : snapshot) {
+    for (const auto &sub : snapshot) {
         if (event.severity < sub.filter.minSeverity) {
             continue;
         }
@@ -102,4 +100,4 @@ void EventBus::deliver(const Event& event) {
     }
 }
 
-}  // namespace core
+} // namespace core

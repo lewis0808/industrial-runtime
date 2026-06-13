@@ -9,26 +9,31 @@ namespace core {
 
 namespace {
 
-LogLevel parseLogLevel(const std::string& s) {
-    if (s == "trace") return LogLevel::Trace;
-    if (s == "debug") return LogLevel::Debug;
-    if (s == "info") return LogLevel::Info;
-    if (s == "warn") return LogLevel::Warn;
-    if (s == "error") return LogLevel::Error;
-    if (s == "critical") return LogLevel::Critical;
-    if (s == "off") return LogLevel::Off;
+LogLevel parseLogLevel(const std::string &s) {
+    if (s == "trace")
+        return LogLevel::Trace;
+    if (s == "debug")
+        return LogLevel::Debug;
+    if (s == "info")
+        return LogLevel::Info;
+    if (s == "warn")
+        return LogLevel::Warn;
+    if (s == "error")
+        return LogLevel::Error;
+    if (s == "critical")
+        return LogLevel::Critical;
+    if (s == "off")
+        return LogLevel::Off;
     return LogLevel::Info;
 }
 
-}  // namespace
+} // namespace
 
 RuntimeEngine::RuntimeEngine() = default;
 
-RuntimeEngine::~RuntimeEngine() {
-    stop();
-}
+RuntimeEngine::~RuntimeEngine() { stop(); }
 
-void RuntimeEngine::init(const Config& config) {
+void RuntimeEngine::init(const Config &config) {
     LoggerConfig logCfg;
     logCfg.level = parseLogLevel(config.get<std::string>("logger.level", "info"));
     logCfg.filePath = config.get<std::string>("logger.file", "");
@@ -58,18 +63,14 @@ void RuntimeEngine::stop() {
     IR_LOG_INFO("RuntimeEngine 已停止");
 }
 
-bool RuntimeEngine::pushTag(const TagValue& tag) {
-    return tagEngine_.write(tag);
-}
+bool RuntimeEngine::pushTag(const TagValue &tag) { return tagEngine_.write(tag); }
 
-bool RuntimeEngine::pushEvent(const Event& event) {
-    return eventBus_.publish(event);
-}
+bool RuntimeEngine::pushEvent(const Event &event) { return eventBus_.publish(event); }
 
-bool RuntimeEngine::pushStream(const StreamFrame& frame) {
+bool RuntimeEngine::pushStream(const StreamFrame &frame) {
     std::lock_guard<std::mutex> lock(streamSinkMutex_);
     if (!streamSink_) {
-        return false;  // 无流接收方
+        return false; // 无流接收方
     }
     streamSink_(frame);
     return true;
@@ -80,4 +81,4 @@ void RuntimeEngine::setStreamSink(StreamSink sink) {
     streamSink_ = std::move(sink);
 }
 
-}  // namespace core
+} // namespace core

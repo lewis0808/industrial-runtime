@@ -13,11 +13,11 @@ int main() {
         Scheduler sched;
         std::atomic<int> ticks{0};
         sched.start();
-        auto id = sched.addPeriodicTask("t", std::chrono::milliseconds(20),
-                                        [&] { ticks.fetch_add(1); });
+        auto id =
+            sched.addPeriodicTask("t", std::chrono::milliseconds(20), [&] { ticks.fetch_add(1); });
         IR_CHECK_EQ(sched.taskCount(), std::size_t{1});
         std::this_thread::sleep_for(std::chrono::milliseconds(150));
-        IR_CHECK(ticks.load() >= 3);  // ~7 次，放宽下限避免抖动误判
+        IR_CHECK(ticks.load() >= 3); // ~7 次，放宽下限避免抖动误判
 
         // 移除后不再增长。
         IR_CHECK(sched.removeTask(id));
@@ -34,8 +34,7 @@ int main() {
         Scheduler sched;
         std::atomic<int> ticks{0};
         sched.start();
-        sched.addPeriodicTask("t", std::chrono::milliseconds(10),
-                              [&] { ticks.fetch_add(1); });
+        sched.addPeriodicTask("t", std::chrono::milliseconds(10), [&] { ticks.fetch_add(1); });
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         sched.stop();
         const int afterStop = ticks.load();
