@@ -23,3 +23,12 @@ add_dependencies(test_plugin_e2e example_plugin)
 target_compile_definitions(test_plugin_e2e
     PRIVATE EXAMPLE_PLUGIN_PATH="$<TARGET_FILE:example_plugin>")
 add_test(NAME test_plugin_e2e COMMAND test_plugin_e2e)
+
+# 写回：应用 -> RuntimeEngine.writeTag -> 插件 onWrite -> 设备回读。
+add_executable(test_plugin_write test_plugin_write.cpp)
+target_link_libraries(test_plugin_write
+    PRIVATE core_runtime_engine core_plugin_host core_plugin_manager plugin_sdk)
+add_dependencies(test_plugin_write example_plugin)
+target_compile_definitions(test_plugin_write
+    PRIVATE EXAMPLE_PLUGIN_PATH="$<TARGET_FILE:example_plugin>")
+add_test(NAME test_plugin_write COMMAND test_plugin_write)
