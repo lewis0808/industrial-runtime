@@ -1,5 +1,9 @@
 #pragma once
 
+#include <string>
+#include <vector>
+
+#include "common/tag_value.hpp"
 #include "irplugin/plugin_abi.h"
 #include "runtime_engine/runtime_api.hpp"
 
@@ -9,6 +13,9 @@ namespace core {
 ///
 /// 持有一个 IrPluginHostApi，其函数指针经静态 thunk 将 C 结构转换为 core 类型后
 /// 转发给 RuntimeApi。abi() 返回的指针在本对象存活期间有效。
+///
+/// 同时维护插件注册的写回处理器（按 topic 前缀归属），供 write() 把应用 SET
+/// 路由到对应插件。
 class PluginHost {
   public:
     explicit PluginHost(RuntimeApi &api) noexcept;
@@ -18,13 +25,26 @@ class PluginHost {
 
     [[nodiscard]] const IrPluginHostApi *abi() const noexcept { return &abi_; }
 
+    /// 把一次写回按 topic 前缀路由到注册的插件处理器。
+    /// 返回 true 表示某插件已受理；无匹配前缀或插件拒绝返回 false。
+    bool write(const TagValue &tag);
+
   private:
+    struct WriteReg {
+        std::string prefix;
+        void *pluginCtx;
+        IrPluginWriteFn handler;
+    };
+
     static int pushTagThunk(void *ctx, const IrPluginTagValue *tag);
     static int pushEventThunk(void *ctx, const IrPluginEvent *event);
     static int pushStreamThunk(void *ctx, const IrPluginStreamFrame *frame);
+    static void registerWriterThunk(void *ctx, const char *prefix, void *pluginCtx,
+                                    IrPluginWriteFn handler);
 
     RuntimeApi *api_;
-    IrPluginHostApi abi_;
+    IrPluginHostApi abi_{};
+    std::vector<WriteReg> writers_;
 };
 
 } // namespace core

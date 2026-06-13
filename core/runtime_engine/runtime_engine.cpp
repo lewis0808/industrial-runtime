@@ -81,4 +81,18 @@ void RuntimeEngine::setStreamSink(StreamSink sink) {
     streamSink_ = std::move(sink);
 }
 
+void RuntimeEngine::setWriteHandler(WriteHandler handler) {
+    std::lock_guard<std::mutex> lock(writeHandlerMutex_);
+    writeHandler_ = std::move(handler);
+}
+
+bool RuntimeEngine::writeTag(const TagValue &tag) {
+    WriteHandler handler;
+    {
+        std::lock_guard<std::mutex> lock(writeHandlerMutex_);
+        handler = writeHandler_;
+    }
+    return handler ? handler(tag) : false;
+}
+
 } // namespace core

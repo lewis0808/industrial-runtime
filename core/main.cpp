@@ -8,10 +8,14 @@
 #include <chrono>
 #include <csignal>
 #include <cstdint>
+#include <string>
 #include <thread>
+#include <vector>
 
 #include "config/config.hpp"
 #include "logger/logger.hpp"
+#include "plugin_host/plugin_host.hpp"
+#include "plugin_manager/plugin_manager.hpp"
 #include "runtime_engine/runtime_engine.hpp"
 #include "server/irp_server.hpp"
 
@@ -54,6 +58,15 @@ int main(int argc, char **argv) {
 
     runtime.start();
 
+    // 装配设备插件与写回出口：写回按 topic 前缀路由到对应插件。
+    core::PluginHost pluginHost(runtime);
+    runtime.setWriteHandler([&pluginHost](const core::TagValue &t) { return pluginHost.write(t); });
+    core::PluginManager pluginManager(pluginHost.abi());
+    for (const auto &path : config.get<std::vector<std::string>>("plugins", {})) {
+        pluginManager.load(path);
+    }
+    pluginManager.startAll();
+
     // 启动对外 IRP WebSocket 服务（端口可经配置 irp.port 覆盖，默认 9777）。
     const auto irpPort = static_cast<std::uint16_t>(config.get<int>("irp.port", 9777));
     irp::IrpServer irpServer(runtime, irpPort);
@@ -75,6 +88,7 @@ int main(int argc, char **argv) {
 
     IR_LOG_INFO("收到退出信号，正在停止...");
     irpServer.stop();
+    pluginManager.stopAll();
     runtime.stop();
     core::Logger::flush();
     return 0;

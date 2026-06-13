@@ -61,8 +61,9 @@ bool PluginManager::load(const std::string &path) {
     }
 
     const IrPluginInfo info = getInfo();
-    if (info.abi_version != IRPLUGIN_ABI_VERSION) {
-        IR_LOG_ERROR("插件 ABI 版本不匹配（插件 {} != 宿主 {}）: {}", info.abi_version,
+    // 结构体仅末尾追加，宿主向后兼容：接受 <= 自身 ABI 版本的插件。
+    if (info.abi_version > IRPLUGIN_ABI_VERSION) {
+        IR_LOG_ERROR("插件 ABI 版本过新（插件 {} > 宿主 {}）: {}", info.abi_version,
                      IRPLUGIN_ABI_VERSION, path);
         closeLibrary(handle);
         return false;
