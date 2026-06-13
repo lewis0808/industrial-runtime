@@ -30,14 +30,14 @@ int main() {
     IR_CHECK(manager.startAll());
 
     // 验证数据确实经 RuntimeApi 进入了 TagEngine。
-    auto temp = runtime.tags().read("example.temperature");
+    auto temp = runtime.tags().read("example/temperature");
     IR_CHECK(temp.has_value());
     if (temp) {
         IR_CHECK(std::holds_alternative<double>(temp->value));
         IR_CHECK(std::get<double>(temp->value) == 25.5);
     }
 
-    auto running = runtime.tags().read("example.running");
+    auto running = runtime.tags().read("example/running");
     IR_CHECK(running.has_value());
     if (running) {
         IR_CHECK(std::holds_alternative<bool>(running->value));
