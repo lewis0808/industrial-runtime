@@ -31,3 +31,7 @@ add_subdirectory(sdk/plugin-sdk)
 add_subdirectory(plugins/example)
 add_subdirectory(core)
 add_subdirectory(irp)
+
+# 可执行入口：组合 core 运行时 + IRP WebSocket 服务（在 core/irp 之后定义）。
+add_executable(IndustrialRuntime core/main.cpp)
+target_link_libraries(IndustrialRuntime PRIVATE core_runtime_engine core_logger irp_server)
