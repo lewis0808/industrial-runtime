@@ -61,6 +61,18 @@
 
 Tag 变化来源 = core `TagEngine` 变更回调（仅值变化触发）；事件来源 = core `EventBus`。
 
+## 写回（SET）
+
+| 命令 | 参数 | 回复 |
+|------|------|------|
+| `SET` | `<topic> <type> <value>` | `+OK` / 错误 |
+
+把设定点下发到设备：`应用 → IRP → Runtime → 插件(按 topic 前缀归属) → 设备`。
+- `type` 为类型标签（`f64`/`i32`/`str`/`bool`…），`value` 为按 type 编码的字节（bulk）。
+- **同步「已受理」语义**：插件 `onWrite` 接受（已写出/排队）即回 `+OK`；不代表设备已物理确认。
+  设备真正写入后通过正常上行（插件 `pushTag` 回读值）体现。
+- 无插件负责该 topic 前缀 → `-NOT_FOUND`；服务端未接写回出口 → `-NOT_IMPLEMENTED`。
+
 ## Stream（V1 预留，未实现）
 
 | 命令 | 参数 | V1 回复 |
@@ -78,8 +90,6 @@ Stream（图像/点云/二进制）吞吐大、需背压，倾向 V2 用**独立
 连接:  HELLO  AUTH(预留)  PING  BYE
 读取:  GET  MGET  EXISTS  SCAN
 订阅:  WATCH  UNWATCH  SUBSCRIBE  UNSUBSCRIBE  SUBEVENT  UNSUBEVENT
+写回:  SET
 流:    SUBSTREAM(预留)  UNSUBSTREAM(预留)
 ```
-
-> 写回（`SET` / 设定点下发）**不在 V1**：涉及「应用→Runtime→插件→设备」的下发与确认
-> 语义，作为独立议题立项，届时新增命令而不改动现有语义。

@@ -7,6 +7,7 @@
 #include "codec/resp_value.hpp"
 #include "semantic/dispatcher.hpp"
 #include "semantic/tag_source.hpp"
+#include "semantic/tag_writer.hpp"
 #include "semantic/topic.hpp"
 #include "tests/test_util.hpp"
 
@@ -35,6 +36,22 @@ class FakeTags : public TagSource {
                 r.names.push_back(k);
         }
         return r;
+    }
+};
+
+/// 假写入器：负责 "example/" 前缀，记录最后一次写。
+class FakeWriter : public TagWriter {
+  public:
+    std::string lastName, lastType, lastValue;
+    WriteResult write(const std::string &name, const std::string &type,
+                      const std::string &value) override {
+        if (name.rfind("example/", 0) != 0) {
+            return WriteResult::NotHandled;
+        }
+        lastName = name;
+        lastType = type;
+        lastValue = value;
+        return WriteResult::Accepted;
     }
 };
 
@@ -158,6 +175,30 @@ int main() {
     // 预留命令。
     IR_CHECK(*errCode(disp.handle(s, cmd({"SUBSTREAM", "a/b"}))) == "NOT_IMPLEMENTED");
     IR_CHECK(*errCode(disp.handle(s, cmd({"AUTH", "tok"}))) == "NOT_IMPLEMENTED");
+
+    // SET 写回。
+    {
+        FakeWriter writer;
+        disp.setWriter(&writer);
+        // 命中前缀 -> Accepted -> +OK
+        auto r = disp.handle(s, cmd({"SET", "example/sp", "f64", std::string(8, '\0')}));
+        IR_CHECK(std::holds_alternative<RespSimple>(r));
+        IR_CHECK(std::get<RespSimple>(r).text == "OK");
+        IR_CHECK(writer.lastName == "example/sp" && writer.lastType == "f64");
+        IR_CHECK(writer.lastValue.size() == 8);
+        // 不命中前缀 -> NOT_FOUND
+        IR_CHECK(*errCode(disp.handle(s, cmd({"SET", "other/x", "i32", "abcd"}))) == "NOT_FOUND");
+        // 参数个数错 -> WRONG_ARITY
+        IR_CHECK(*errCode(disp.handle(s, cmd({"SET", "example/sp"}))) == "WRONG_ARITY");
+    }
+    // 未设 writer -> NOT_IMPLEMENTED
+    {
+        Dispatcher disp2(tags);
+        Session s2{2, false};
+        disp2.handle(s2, cmd({"HELLO", "1"}));
+        IR_CHECK(*errCode(disp2.handle(s2, cmd({"SET", "example/sp", "f64", "xxxxxxxx"}))) ==
+                 "NOT_IMPLEMENTED");
+    }
 
     // 未知命令。
     IR_CHECK(*errCode(disp.handle(s, cmd({"FOObar"}))) == "UNKNOWN_COMMAND");

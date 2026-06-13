@@ -21,6 +21,10 @@ class RuntimeEngine final : public RuntimeApi {
     /// 流数据接收方：core 不解析流，仅转交给注册的 sink（通常由 stream/ 模块提供）。
     using StreamSink = std::function<void(const StreamFrame &)>;
 
+    /// 写回处理器：把应用下发的写路由到设备侧（通常接到 PluginHost，按前缀路由插件）。
+    /// 返回 true 表示已受理。
+    using WriteHandler = std::function<bool(const TagValue &)>;
+
     RuntimeEngine();
     ~RuntimeEngine() override;
 
@@ -50,6 +54,12 @@ class RuntimeEngine final : public RuntimeApi {
     /// 注册流数据接收方。
     void setStreamSink(StreamSink sink);
 
+    /// 注册写回处理器（应用 SET 的下行出口）。
+    void setWriteHandler(WriteHandler handler);
+
+    /// 下发一次写回。无处理器或无人受理返回 false。
+    bool writeTag(const TagValue &tag);
+
   private:
     TagEngine tagEngine_;
     EventBus eventBus_;
@@ -58,6 +68,9 @@ class RuntimeEngine final : public RuntimeApi {
 
     std::mutex streamSinkMutex_;
     StreamSink streamSink_;
+
+    std::mutex writeHandlerMutex_;
+    WriteHandler writeHandler_;
 
     bool started_{false};
 };

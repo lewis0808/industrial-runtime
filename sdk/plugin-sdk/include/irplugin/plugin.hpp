@@ -4,6 +4,8 @@
 // 仅依赖 plugin_abi.h（纯 C ABI），不与 core 共享任何 C++ 类型。
 
 #include <cstdint>
+#include <functional>
+#include <string>
 #include <string_view>
 #include <type_traits>
 
@@ -89,7 +91,26 @@ class Host {
         return api_->push_stream(api_->ctx, &frame) != 0;
     }
 
+    /// 注册写回处理器：声明本插件负责 prefix 前缀下 Tag 的写。
+    /// 应用 SET 命中该前缀时，宿主回调 cb(写入的 TagValue)，返回 true 表示已受理。
+    /// 注意：注册后请勿拷贝/移动本 Host 对象（蹦床以 this 为上下文）。
+    void onWrite(std::string_view prefix, std::function<bool(const IrPluginTagValue &)> cb) {
+        writeCb_ = std::move(cb);
+        writePrefix_ = std::string(prefix);
+        if (api_ != nullptr && api_->register_writer != nullptr) {
+            api_->register_writer(api_->ctx, writePrefix_.c_str(), this, &Host::writeTrampoline);
+        }
+    }
+
   private:
+    static int writeTrampoline(void *plugin_ctx, const IrPluginTagValue *tag) {
+        auto *self = static_cast<Host *>(plugin_ctx);
+        if (self == nullptr || !self->writeCb_ || tag == nullptr) {
+            return 0;
+        }
+        return self->writeCb_(*tag) ? 1 : 0;
+    }
+
     template <typename T> static void fillVariant(IrPluginVariant &v, T value) noexcept {
         if constexpr (std::is_same_v<T, bool>) {
             v.type = IRPLUGIN_TYPE_BOOL;
@@ -132,6 +153,8 @@ class Host {
     }
 
     const IrPluginHostApi *api_ = nullptr;
+    std::function<bool(const IrPluginTagValue &)> writeCb_;
+    std::string writePrefix_;
 };
 
 /// 宿主侧用于解析导出函数的指针类型。

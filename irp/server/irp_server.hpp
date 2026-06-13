@@ -12,6 +12,7 @@
 
 #include "semantic/dispatcher.hpp"
 #include "server/core_tag_source.hpp"
+#include "server/core_tag_writer.hpp"
 
 // 仅前向声明 libwebsockets 类型，<libwebsockets.h> 只在 .cpp 引入。
 struct lws;
@@ -72,6 +73,7 @@ class IrpServer {
 
     core::RuntimeEngine *runtime_;
     CoreTagSource tagSource_;
+    CoreTagWriter writer_;
     Dispatcher dispatcher_;
     std::uint16_t port_;
 
@@ -79,7 +81,8 @@ class IrpServer {
     std::jthread service_;
     std::atomic<bool> running_{false};
 
-    std::mutex mutex_; ///< 保护 dispatcher_ 与 conns_
+    // 递归锁：SET 写回会在持锁的 RECEIVE 内经 pushTag 触发变更回调 routeTag 再次入锁（同线程重入）。
+    std::recursive_mutex mutex_; ///< 保护 dispatcher_ 与 conns_
     std::unordered_map<std::uint64_t, std::unique_ptr<Conn>> conns_;
     std::uint64_t nextConnId_{1};
     std::uint64_t eventSubId_{0};
