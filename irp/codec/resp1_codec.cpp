@@ -199,4 +199,19 @@ Resp1Codec::DecodeResult Resp1Codec::decode(std::string_view buffer) {
     return DecodeResult{st.status, std::move(st.value), st.pos};
 }
 
+RespValue Resp1Codec::decodeInline(std::string_view line) {
+    auto isSpace = [](char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; };
+    RespArray arr;
+    std::size_t i = 0;
+    const std::size_t n = line.size();
+    while (i < n) {
+        while (i < n && isSpace(line[i])) ++i;
+        if (i >= n) break;
+        const std::size_t start = i;
+        while (i < n && !isSpace(line[i])) ++i;
+        arr.items.push_back(makeBulk(std::string(line.substr(start, i - start))));
+    }
+    return arr;
+}
+
 } // namespace irp

@@ -36,6 +36,21 @@
 
 客户端依 map 中 `type` 字段解码 `value` bulk。
 
+## Inline 命令（调试用）
+
+为便于人工调试（wscat、浏览器控制台），服务端对**不以 `*` 开头**的请求帧按 Redis 风格
+inline 解析：整行按空白拆成参数，等价于一个 bulk 数组。例如直接发文本：
+
+```
+HELLO 1
+GET system/heartbeat
+SUBSCRIBE system/#
+```
+
+即可，无需手工构造 `*…$…` 帧。空行被忽略。
+说明：仅请求方向支持 inline；**回复仍为 resp1**（数值为二进制 bulk）。inline 仅供调试，
+正式客户端/SDK 一律用 resp1 编码。不支持引号/转义（按空白切分）。
+
 ## TagValue（map）
 
 ```

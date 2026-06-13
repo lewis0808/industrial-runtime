@@ -31,6 +31,10 @@ class Resp1Codec {
 
     /// 从 buffer 起始解析一个顶层值。
     [[nodiscard]] static DecodeResult decode(std::string_view buffer);
+
+    /// 解析 inline 命令（Redis 风格，调试用）：按空白把一行拆成 bulk 数组。
+    /// 用于客户端直接发文本命令（如 wscat 敲 "HELLO 1"），不要求 resp1 编码。空行返回空数组。
+    [[nodiscard]] static RespValue decodeInline(std::string_view line);
 };
 
 } // namespace irp

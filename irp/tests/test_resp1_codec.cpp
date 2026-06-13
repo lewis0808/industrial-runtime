@@ -114,5 +114,23 @@ int main() {
         IR_CHECK(Resp1Codec::decode("?bad\r\n").status == Status::Error); // 未知类型
     }
 
+    // ---- inline 命令（调试用）----
+    {
+        const auto v = Resp1Codec::decodeInline("HELLO 1");
+        const auto &a = std::get<RespArray>(v);
+        IR_CHECK_EQ(a.items.size(), std::size_t{2});
+        IR_CHECK(std::get<RespBulk>(a.items[0]).data == "HELLO");
+        IR_CHECK(std::get<RespBulk>(a.items[1]).data == "1");
+
+        // 多空白/制表/前后空格被规整。
+        const auto v2 = Resp1Codec::decodeInline("  GET   system/heartbeat \t");
+        const auto &a2 = std::get<RespArray>(v2);
+        IR_CHECK_EQ(a2.items.size(), std::size_t{2});
+        IR_CHECK(std::get<RespBulk>(a2.items[1]).data == "system/heartbeat");
+
+        // 空行 -> 空数组。
+        IR_CHECK(std::get<RespArray>(Resp1Codec::decodeInline("   ")).items.empty());
+    }
+
     IR_TEST_REPORT();
 }

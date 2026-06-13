@@ -106,14 +106,29 @@ IrpServer::Conn *IrpServer::connFor(void *user) {
 }
 
 void IrpServer::processFrame(Conn &conn, const std::string &frame) {
-    auto dec = Resp1Codec::decode(frame);
-    if (dec.status != Resp1Codec::Status::Ok) {
-        conn.outbox.push_back(Resp1Codec::encode(makeError("PROTOCOL_ERROR", "bad frame")));
-        conn.closeAfterWrite = true;
+    if (frame.empty()) {
         return;
     }
-    const bool bye = isByeCommand(dec.value);
-    RespValue reply = dispatcher_.handle(conn.session, dec.value);
+    RespValue request;
+    if (frame[0] == '*') {
+        // resp1 编码帧（SDK 正常路径）。
+        auto dec = Resp1Codec::decode(frame);
+        if (dec.status != Resp1Codec::Status::Ok) {
+            conn.outbox.push_back(Resp1Codec::encode(makeError("PROTOCOL_ERROR", "bad frame")));
+            conn.closeAfterWrite = true;
+            return;
+        }
+        request = std::move(dec.value);
+    } else {
+        // 非 '*' 开头：按 Redis 风格 inline 命令解析（调试用，如 wscat 直接敲 "HELLO 1"）。
+        request = Resp1Codec::decodeInline(frame);
+        const auto *arr = std::get_if<RespArray>(&request);
+        if (arr != nullptr && arr->items.empty()) {
+            return; // 空行忽略
+        }
+    }
+    const bool bye = isByeCommand(request);
+    RespValue reply = dispatcher_.handle(conn.session, request);
     conn.outbox.push_back(Resp1Codec::encode(reply));
     if (bye) {
         conn.closeAfterWrite = true;
