@@ -1,0 +1,7 @@
+.idea/
+.cursor/
+.claude/
+.trea/
+.codex/
+cmake-build-debug/
+cmake-build-release/
