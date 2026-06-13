@@ -32,6 +32,7 @@ endif()
 # （core 链接 plugin_sdk，core/tests 的端到端测试依赖 example_plugin 目标）。
 add_subdirectory(sdk/plugin-sdk)
 add_subdirectory(plugins/example)
+add_subdirectory(plugins/s7)
 add_subdirectory(core)
 add_subdirectory(irp)
 

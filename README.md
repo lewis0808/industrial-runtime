@@ -22,7 +22,7 @@
 |------|------|------|
 | `core/` | 运行时内核：Tag/Event 存储、事件总线、调度、配置、日志、插件宿主 | ✅ 可用 |
 | `sdk/plugin-sdk/` | 设备插件开发 SDK（C-ABI + `IPlugin`） | ✅ 可用 |
-| `plugins/` | 动态加载的设备插件（含 `example` 示例） | 🟡 仅示例 |
+| `plugins/` | 动态加载的设备插件（`example` + `s7` 真 snap7） | 🟢 example + S7(snap7) |
 | `irp/` | IRP 协议（规格 + 编解码 + 语义 + WebSocket 服务） | ✅ V1 可用 |
 | `sdk/irp-client/` | 多语言客户端 SDK | 🟡 JS /Python |
 | `stream/` | 高带宽流数据（图像/点云/二进制） | ⬜ 未开始 |
@@ -76,8 +76,12 @@
 - [ ] **插件生命周期改纯 C vtable**（COM-lite）：当前 `createPlugin` 返回 C++ `IPlugin*`、
       `init/start/stop/destroy` 是 C++ 虚函数，**实际只支持 C++**；改成 C 函数指针表后才能真正
       "任意语言"写插件（数据/host 面已是纯 C ABI）。
-- [ ] 真实插件：`s7` / `modbus` / `opcua` / 相机（`camera`）/ 雷达（`radar`）。
-- [ ] 插件采集循环模板（jthread 周期读）+ 配置化。
+- [x] **`s7` 插件（真 snap7）**：jthread 周期采集 + 写回 + S7 大端 DB 编解码；`Snap7Backend`
+      用 snap7 `Cli_*` 真 TCP/S7comm 连 PLC；端到端测试用 snap7 `Srv_*` 起虚拟 PLC（无需硬件）。
+      `S7Backend` 抽象保留内存模拟备选。
+- [ ] 其它真实插件：`modbus` / `opcua` / 相机（`camera`）/ 雷达（`radar`）。
+- [ ] 插件**配置化**：把 PLC 地址 / tag 映射 / 轮询周期等从内置表改为配置驱动
+      （需插件配置传递机制）。
 - [ ] PluginManager 增强：热加载/卸载、健康检查、隔离与崩溃恢复。
 
 ### 4. Stream 体系（`stream/`）
