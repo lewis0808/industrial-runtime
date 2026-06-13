@@ -15,6 +15,8 @@ core/
 ├── memory_store/          # 内存 KV（类 Redis 核心）
 ├── scheduler/             # 周期任务调度（采集周期）
 ├── runtime_engine/        # 编排层 + 对插件可见的 Runtime API
+├── plugin_host/           # RuntimeApi -> C-ABI 宿主接口适配
+├── plugin_manager/        # 跨平台 DLL 加载 + 插件生命周期
 ├── tests/                 # 单元测试（CTest，零外部框架）
 └── main.cpp               # 运行时入口
 ```
@@ -72,6 +74,17 @@ core/
   `tags()/events()/store()/scheduler()` 内部访问（供运行时自身与测试，不对插件暴露）、
   `setStreamSink()`。
 
+### plugin_host/
+`PluginHost(RuntimeApi&)` —— 把 `RuntimeApi` 包装为插件可用的 C-ABI `IrPluginHostApi`
+（见 `sdk/plugin-sdk`）。`abi()` 返回的指针经静态 thunk 把 `IrPluginTagValue/
+IrPluginEvent/IrPluginStreamFrame`（纯 C 结构）转换为 core 类型后转发。这是宿主侧的封送层。
+
+### plugin_manager/
+`PluginManager(const IrPluginHostApi*)` —— 跨平台加载插件 DLL（Windows `LoadLibrary` /
+POSIX `dlopen`）。`load()` 解析 `getPluginInfo`/`createPlugin`、校验 ABI 版本、
+`createPlugin(host)` 并 `init()`；`startAll()`/`stopAll()`；析构时按逆序
+`stop -> destroy -> 卸载库`。`destroy()` 在插件自身堆释放对象。
+
 ## 数据流
 
 ```
@@ -92,8 +105,11 @@ core_common (INTERFACE, 提供 include 根)
   ├── core_event_bus     -> Threads
   ├── core_memory_store  -> Threads
   ├── core_scheduler     -> Threads
-  └── core_runtime_engine -> 以上全部
+  ├── core_runtime_engine -> 以上全部
+  ├── core_plugin_host    -> core_runtime_engine + plugin_sdk
+  └── core_plugin_manager -> plugin_sdk + core_logger (+ dl on POSIX)
 IndustrialRuntime (exe) -> core_runtime_engine
+plugin_sdk (INTERFACE, 来自 sdk/plugin-sdk) —— 宿主与插件共享的 ABI 契约
 ```
 
 各模块为独立 STATIC 库，依赖边集中在 `core/CMakeLists.txt`。新增模块时保持低耦合，
