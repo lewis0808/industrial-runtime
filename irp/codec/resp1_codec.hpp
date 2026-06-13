@@ -1,0 +1,36 @@
+#pragma once
+
+#include <cstddef>
+#include <string>
+#include <string_view>
+
+#include "codec/resp_value.hpp"
+
+namespace irp {
+
+/// resp1 编解码：RespValue <-> 字节。详见 irp/encoding/resp1.md。
+class Resp1Codec {
+public:
+    enum class Status {
+        Ok,          ///< 成功解析出一个完整顶层值
+        Incomplete,  ///< 数据不完整，需更多字节（流式传输时可继续等待）
+        Error,       ///< 协议违规（坏帧）
+    };
+
+    struct DecodeResult {
+        Status status{Status::Error};
+        RespValue value{RespNull{}};
+        std::size_t consumed{0};  ///< 已消费字节数（Ok 时有效）
+    };
+
+    /// 编码一个值，追加到 out。
+    static void encode(const RespValue& value, std::string& out);
+
+    /// 编码一个值并返回字节串。
+    [[nodiscard]] static std::string encode(const RespValue& value);
+
+    /// 从 buffer 起始解析一个顶层值。
+    [[nodiscard]] static DecodeResult decode(std::string_view buffer);
+};
+
+}  // namespace irp
