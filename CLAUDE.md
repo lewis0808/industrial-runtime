@@ -255,6 +255,22 @@ DEFAULT_BUFFER_SIZE
 ```
 UPPER_CASE
 
+### Tag 命名 / Topic：
+
+```markdown
+Tag Name == Topic
+Topic Separator == /
+```
+
+- Tag 名即 IRP Topic，统一使用 `/` 分层，例如：
+```markdown
+example/temperature
+factory1/line1/robot1/temp
+```
+- 禁止使用 `.` 作为层级分隔（`.` 仅用于 config 配置路径，与 Tag 无关）。
+- 禁止做 `.` ↔ `/` 转换层（永久技术债）。
+- 订阅通配采用 MQTT 风格：`+`（单层）、`#`（多层，末段）。
+
 ---
 ## AI 生成代码规则
 
