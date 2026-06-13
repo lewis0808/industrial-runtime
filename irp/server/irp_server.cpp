@@ -92,7 +92,10 @@ int irpLwsCallback(struct lws *wsi, enum lws_callback_reasons reason, void *user
 } // namespace
 
 IrpServer::IrpServer(core::RuntimeEngine &runtime, std::uint16_t port)
-    : runtime_(&runtime), tagSource_(runtime.tags()), dispatcher_(tagSource_), port_(port) {}
+    : runtime_(&runtime), tagSource_(runtime.tags()), writer_(runtime), dispatcher_(tagSource_),
+      port_(port) {
+    dispatcher_.setWriter(&writer_); // SET 写回出口（路由由 RuntimeEngine.writeHandler 决定）
+}
 
 IrpServer::~IrpServer() { stop(); }
 
@@ -138,7 +141,7 @@ void IrpServer::processFrame(Conn &conn, const std::string &frame) {
 int IrpServer::dispatchCallback(lws *wsi, int reason, void *user, void *in, std::size_t len) {
     switch (reason) {
     case LWS_CALLBACK_ESTABLISHED: {
-        std::lock_guard<std::mutex> lk(mutex_);
+        std::lock_guard<std::recursive_mutex> lk(mutex_);
         auto *ps = static_cast<PerSession *>(user);
         const std::uint64_t id = nextConnId_++;
         ps->id = id;
@@ -151,7 +154,7 @@ int IrpServer::dispatchCallback(lws *wsi, int reason, void *user, void *in, std:
     }
 
     case LWS_CALLBACK_RECEIVE: {
-        std::lock_guard<std::mutex> lk(mutex_);
+        std::lock_guard<std::recursive_mutex> lk(mutex_);
         Conn *conn = connFor(user);
         if (conn == nullptr) {
             break;
@@ -167,7 +170,7 @@ int IrpServer::dispatchCallback(lws *wsi, int reason, void *user, void *in, std:
     }
 
     case LWS_CALLBACK_SERVER_WRITEABLE: {
-        std::lock_guard<std::mutex> lk(mutex_);
+        std::lock_guard<std::recursive_mutex> lk(mutex_);
         Conn *conn = connFor(user);
         if (conn == nullptr) {
             break;
@@ -193,7 +196,7 @@ int IrpServer::dispatchCallback(lws *wsi, int reason, void *user, void *in, std:
 
     case LWS_CALLBACK_EVENT_WAIT_CANCELLED: {
         // 被 lws_cancel_service 唤醒：为有积压的连接请求可写。
-        std::lock_guard<std::mutex> lk(mutex_);
+        std::lock_guard<std::recursive_mutex> lk(mutex_);
         for (auto &[id, conn] : conns_) {
             if (!conn->outbox.empty()) {
                 lws_callback_on_writable(conn->wsi);
@@ -203,7 +206,7 @@ int IrpServer::dispatchCallback(lws *wsi, int reason, void *user, void *in, std:
     }
 
     case LWS_CALLBACK_CLOSED: {
-        std::lock_guard<std::mutex> lk(mutex_);
+        std::lock_guard<std::recursive_mutex> lk(mutex_);
         if (user != nullptr) {
             const auto id = static_cast<PerSession *>(user)->id;
             dispatcher_.onSessionClosed(id);
@@ -226,7 +229,7 @@ void IrpServer::serviceLoop(std::stop_token stopToken) {
 
 void IrpServer::routeTag(const std::string &name) {
     {
-        std::lock_guard<std::mutex> lk(mutex_);
+        std::lock_guard<std::recursive_mutex> lk(mutex_);
         const auto ids = dispatcher_.tagSubscribers(name);
         if (ids.empty()) {
             return;
@@ -250,7 +253,7 @@ void IrpServer::routeTag(const std::string &name) {
 
 void IrpServer::onEvent(const core::Event &event) {
     {
-        std::lock_guard<std::mutex> lk(mutex_);
+        std::lock_guard<std::recursive_mutex> lk(mutex_);
         const auto ids =
             dispatcher_.eventSubscribers(static_cast<int>(event.severity), event.category);
         if (ids.empty()) {
