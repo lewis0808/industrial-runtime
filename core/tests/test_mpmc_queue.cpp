@@ -19,7 +19,7 @@ int main() {
         IR_CHECK_EQ(v, 1);
         IR_CHECK(q.tryDequeue(v));
         IR_CHECK_EQ(v, 2);
-        IR_CHECK(!q.tryDequeue(v));  // 空
+        IR_CHECK(!q.tryDequeue(v)); // 空
     }
 
     // 队列满返回 false。
@@ -27,7 +27,7 @@ int main() {
         MpmcQueue<int> q(2);
         IR_CHECK(q.tryEnqueue(1));
         IR_CHECK(q.tryEnqueue(2));
-        IR_CHECK(!q.tryEnqueue(3));  // 满
+        IR_CHECK(!q.tryEnqueue(3)); // 满
     }
 
     // 多生产者多消费者：总数守恒。
@@ -56,8 +56,7 @@ int main() {
             consumers.emplace_back([&] {
                 int v = 0;
                 while (!done.load(std::memory_order_acquire) ||
-                       consumedCount.load(std::memory_order_relaxed) <
-                           PRODUCERS * PER_PRODUCER) {
+                       consumedCount.load(std::memory_order_relaxed) < PRODUCERS * PER_PRODUCER) {
                     if (q.tryDequeue(v)) {
                         consumedSum.fetch_add(v, std::memory_order_relaxed);
                         consumedCount.fetch_add(1, std::memory_order_relaxed);
@@ -67,13 +66,14 @@ int main() {
                 }
             });
         }
-        for (auto& t : threads) t.join();
+        for (auto &t : threads)
+            t.join();
         done.store(true, std::memory_order_release);
-        for (auto& t : consumers) t.join();
+        for (auto &t : consumers)
+            t.join();
 
         IR_CHECK_EQ(produced.load(), PRODUCERS * PER_PRODUCER);
-        IR_CHECK_EQ(consumedSum.load(),
-                    static_cast<long long>(PRODUCERS) * PER_PRODUCER);
+        IR_CHECK_EQ(consumedSum.load(), static_cast<long long>(PRODUCERS) * PER_PRODUCER);
     }
 
     IR_TEST_REPORT();

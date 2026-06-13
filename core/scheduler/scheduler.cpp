@@ -6,9 +6,7 @@
 
 namespace core {
 
-Scheduler::~Scheduler() {
-    stop();
-}
+Scheduler::~Scheduler() { stop(); }
 
 void Scheduler::start() {
     {
@@ -36,15 +34,14 @@ void Scheduler::stop() {
     }
 }
 
-Scheduler::TaskId Scheduler::addPeriodicTask(std::string name,
-                                             std::chrono::milliseconds interval,
+Scheduler::TaskId Scheduler::addPeriodicTask(std::string name, std::chrono::milliseconds interval,
                                              Task task) {
     std::lock_guard<std::mutex> lock(mutex_);
     const TaskId id = nextId_++;
-    tasks_.emplace(id, Entry{id, std::move(name), interval,
-                             Clock::now() + interval, std::move(task)});
+    tasks_.emplace(id,
+                   Entry{id, std::move(name), interval, Clock::now() + interval, std::move(task)});
     ++version_;
-    cv_.notify_all();  // 唤醒调度线程重算最近到期时间
+    cv_.notify_all(); // 唤醒调度线程重算最近到期时间
     return id;
 }
 
@@ -74,7 +71,7 @@ void Scheduler::runLoop(std::stop_token stopToken) {
 
         // 找出最近到期时间。
         auto soonest = Clock::time_point::max();
-        for (const auto& [id, entry] : tasks_) {
+        for (const auto &[id, entry] : tasks_) {
             soonest = std::min(soonest, entry.nextRun);
         }
 
@@ -87,13 +84,13 @@ void Scheduler::runLoop(std::stop_token stopToken) {
             break;
         }
         if (version_ != observedVersion) {
-            continue;  // 任务表已变，回到循环重算最近到期时间
+            continue; // 任务表已变，回到循环重算最近到期时间
         }
 
         // 收集已到期任务，复制其回调后在解锁状态下执行。
         const auto nowTp = Clock::now();
         std::vector<std::pair<TaskId, Task>> due;
-        for (auto& [id, entry] : tasks_) {
+        for (auto &[id, entry] : tasks_) {
             if (entry.nextRun <= nowTp) {
                 due.emplace_back(id, entry.task);
                 entry.nextRun = nowTp + entry.interval;
@@ -101,11 +98,11 @@ void Scheduler::runLoop(std::stop_token stopToken) {
         }
 
         lock.unlock();
-        for (auto& [id, task] : due) {
+        for (auto &[id, task] : due) {
             task();
         }
         lock.lock();
     }
 }
 
-}  // namespace core
+} // namespace core

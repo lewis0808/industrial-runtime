@@ -13,17 +13,17 @@ namespace core {
 ///
 /// 注意：跨 DLL 的 C-ABI 封送由 plugin-sdk 负责，core 内部以此抽象接口使用。
 class RuntimeApi {
-public:
+  public:
     virtual ~RuntimeApi() = default;
 
     /// 推送一个 Tag 值。返回相对旧值是否发生变化。
-    virtual bool pushTag(const TagValue& tag) = 0;
+    virtual bool pushTag(const TagValue &tag) = 0;
 
     /// 推送一个事件。队列满返回 false。
-    virtual bool pushEvent(const Event& event) = 0;
+    virtual bool pushEvent(const Event &event) = 0;
 
     /// 推送一帧流数据。无流接收方时返回 false。
-    virtual bool pushStream(const StreamFrame& frame) = 0;
+    virtual bool pushStream(const StreamFrame &frame) = 0;
 };
 
-}  // namespace core
+} // namespace core

@@ -14,16 +14,16 @@ namespace core {
 /// createPlugin(host) -> init()。卸载流程：stop()（若已启动）-> destroy() ->
 /// 关闭动态库。不跨边界传递 STL / 异常。线程不安全，由调用方串行使用。
 class PluginManager {
-public:
+  public:
     /// @param host 提供给插件的宿主 API（须在 PluginManager 存活期间有效）。
-    explicit PluginManager(const IrPluginHostApi* host) noexcept;
+    explicit PluginManager(const IrPluginHostApi *host) noexcept;
     ~PluginManager();
 
-    PluginManager(const PluginManager&) = delete;
-    PluginManager& operator=(const PluginManager&) = delete;
+    PluginManager(const PluginManager &) = delete;
+    PluginManager &operator=(const PluginManager &) = delete;
 
     /// 加载并 init 一个插件 DLL。成功返回 true。
-    bool load(const std::string& path);
+    bool load(const std::string &path);
 
     /// 对所有已加载插件调用 start()。返回是否全部成功。
     bool startAll();
@@ -37,18 +37,18 @@ public:
     /// 返回第 index 个插件的元信息（index 越界返回空 info）。
     [[nodiscard]] IrPluginInfo infoAt(std::size_t index) const;
 
-private:
+  private:
     struct Loaded {
-        void* handle;               ///< 平台相关的动态库句柄
+        void *handle; ///< 平台相关的动态库句柄
         IrPluginInfo info;
-        irplugin::IPlugin* plugin;  ///< 由插件 DLL 分配，须经 destroy() 释放
+        irplugin::IPlugin *plugin; ///< 由插件 DLL 分配，须经 destroy() 释放
         bool started;
     };
 
     void unloadAll() noexcept;
 
-    const IrPluginHostApi* host_;
+    const IrPluginHostApi *host_;
     std::vector<Loaded> plugins_;
 };
 
-}  // namespace core
+} // namespace core

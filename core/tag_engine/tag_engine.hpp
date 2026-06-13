@@ -19,19 +19,19 @@ namespace core {
 /// 采用分片（shard）+ 每片读写锁，写入互不阻塞跨片读取，
 /// 适合高频写入 + 高频读取的工业采集场景。线程安全。
 class TagEngine {
-public:
+  public:
     /// Tag 变更回调：值首次写入或发生变化时触发。
-    using ChangeCallback = std::function<void(const TagValue&)>;
+    using ChangeCallback = std::function<void(const TagValue &)>;
 
     TagEngine() = default;
 
     /// 写入或更新一个 Tag。返回值是否相对旧值发生了变化。
     /// 若值发生变化且已注册回调，则同步触发回调。
-    bool write(const TagValue& tag);
-    bool write(TagValue&& tag);
+    bool write(const TagValue &tag);
+    bool write(TagValue &&tag);
 
     /// 批量写入。返回发生变化的 Tag 数量。
-    std::size_t writeBatch(const std::vector<TagValue>& tags);
+    std::size_t writeBatch(const std::vector<TagValue> &tags);
 
     /// 读取单个 Tag。不存在返回 std::nullopt。
     [[nodiscard]] std::optional<TagValue> read(std::string_view name) const;
@@ -51,7 +51,7 @@ public:
     /// 注册全局变更回调。当前实现仅保留最后一次注册的回调。
     void setChangeCallback(ChangeCallback callback);
 
-private:
+  private:
     static constexpr std::size_t SHARD_COUNT = 16;
 
     struct Shard {
@@ -59,12 +59,11 @@ private:
         std::unordered_map<std::string, TagValue> map;
     };
 
-    [[nodiscard]] Shard& shardFor(std::string_view name);
-    [[nodiscard]] const Shard& shardFor(std::string_view name) const;
+    [[nodiscard]] Shard &shardFor(std::string_view name);
+    [[nodiscard]] const Shard &shardFor(std::string_view name) const;
 
     /// 真正的写入实现，模板以复用左值/右值路径。
-    template <typename TagT>
-    bool writeImpl(TagT&& tag);
+    template <typename TagT> bool writeImpl(TagT &&tag);
 
     std::array<Shard, SHARD_COUNT> shards_;
 
@@ -72,4 +71,4 @@ private:
     ChangeCallback changeCallback_;
 };
 
-}  // namespace core
+} // namespace core

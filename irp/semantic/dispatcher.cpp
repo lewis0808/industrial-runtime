@@ -18,22 +18,26 @@ std::string toUpper(std::string s) {
 }
 
 /// 严重级别字符串 -> 排名；非法返回 -1。
-int severityRank(const std::string& s) {
-    if (s == "info") return 0;
-    if (s == "warning") return 1;
-    if (s == "alarm") return 2;
-    if (s == "critical") return 3;
+int severityRank(const std::string &s) {
+    if (s == "info")
+        return 0;
+    if (s == "warning")
+        return 1;
+    if (s == "alarm")
+        return 2;
+    if (s == "critical")
+        return 3;
     return -1;
 }
 
-bool parseCount(const std::string& s, std::size_t& out) {
-    const char* begin = s.data();
-    const char* end = s.data() + s.size();
+bool parseCount(const std::string &s, std::size_t &out) {
+    const char *begin = s.data();
+    const char *end = s.data() + s.size();
     auto [ptr, ec] = std::from_chars(begin, end, out);
     return ec == std::errc() && ptr == end;
 }
 
-RespValue tagToMap(const TagRecord& rec) {
+RespValue tagToMap(const TagRecord &rec) {
     RespMap m;
     m.entries.emplace_back(makeBulk("name"), makeBulk(rec.name));
     m.entries.emplace_back(makeBulk("type"), makeBulk(rec.type));
@@ -42,17 +46,17 @@ RespValue tagToMap(const TagRecord& rec) {
     return m;
 }
 
-}  // namespace
+} // namespace
 
-RespValue Dispatcher::handle(Session& session, const RespValue& request) {
-    const auto* arr = std::get_if<RespArray>(&request);
+RespValue Dispatcher::handle(Session &session, const RespValue &request) {
+    const auto *arr = std::get_if<RespArray>(&request);
     if (arr == nullptr || arr->items.empty()) {
         return makeError("PROTOCOL_ERROR", "expected non-empty command array");
     }
     std::vector<std::string> parts;
     parts.reserve(arr->items.size());
-    for (const auto& item : arr->items) {
-        const auto* b = std::get_if<RespBulk>(&item);
+    for (const auto &item : arr->items) {
+        const auto *b = std::get_if<RespBulk>(&item);
         if (b == nullptr) {
             return makeError("PROTOCOL_ERROR", "command elements must be bulk strings");
         }
@@ -61,7 +65,7 @@ RespValue Dispatcher::handle(Session& session, const RespValue& request) {
 
     const std::string name = toUpper(parts[0]);
     const std::size_t argc = parts.size() - 1;
-    const auto arg = [&](std::size_t i) -> const std::string& { return parts[1 + i]; };
+    const auto arg = [&](std::size_t i) -> const std::string & { return parts[1 + i]; };
 
     // HELLO 强制：握手前仅允许 HELLO。
     if (name != "HELLO" && !session.hello) {
@@ -137,7 +141,7 @@ RespValue Dispatcher::handle(Session& session, const RespValue& request) {
         ScanResult res = tags_->scan(arg(0), arg(1), count);
         RespArray names;
         names.items.reserve(res.names.size());
-        for (auto& n : res.names) {
+        for (auto &n : res.names) {
             names.items.push_back(makeBulk(n));
         }
         RespArray out;
@@ -218,9 +222,9 @@ void Dispatcher::onSessionClosed(std::uint64_t id) {
 }
 
 std::vector<std::uint64_t> Dispatcher::eventSubscribers(int severityRank,
-                                                        const std::string& category) const {
+                                                        const std::string &category) const {
     std::vector<std::uint64_t> out;
-    for (const auto& [id, filter] : eventSubs_) {
+    for (const auto &[id, filter] : eventSubs_) {
         if (severityRank < filter.minSeverityRank) {
             continue;
         }
@@ -233,4 +237,4 @@ std::vector<std::uint64_t> Dispatcher::eventSubscribers(int severityRank,
     return out;
 }
 
-}  // namespace irp
+} // namespace irp

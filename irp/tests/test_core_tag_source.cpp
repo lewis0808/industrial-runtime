@@ -14,22 +14,24 @@ using namespace irp;
 namespace {
 RespValue cmd(std::vector<std::string> parts) {
     RespArray a;
-    for (auto& p : parts) a.items.push_back(makeBulk(std::move(p)));
+    for (auto &p : parts)
+        a.items.push_back(makeBulk(std::move(p)));
     return a;
 }
-const std::string* mapGet(const RespValue& v, const std::string& key) {
-    const auto* m = std::get_if<RespMap>(&v);
-    if (!m) return nullptr;
-    for (const auto& [k, val] : m->entries) {
-        const auto* kb = std::get_if<RespBulk>(&k);
+const std::string *mapGet(const RespValue &v, const std::string &key) {
+    const auto *m = std::get_if<RespMap>(&v);
+    if (!m)
+        return nullptr;
+    for (const auto &[k, val] : m->entries) {
+        const auto *kb = std::get_if<RespBulk>(&k);
         if (kb && kb->data == key) {
-            const auto* vb = std::get_if<RespBulk>(&val);
+            const auto *vb = std::get_if<RespBulk>(&val);
             return vb ? &vb->data : nullptr;
         }
     }
     return nullptr;
 }
-}  // namespace
+} // namespace
 
 int main() {
     core::TagEngine engine;
@@ -82,7 +84,7 @@ int main() {
         IR_CHECK(r1.nextCursor == "a/b");
         auto r2 = src.scan(r1.nextCursor, "a/#", 1);
         IR_CHECK(r2.names[0] == "a/c");
-        IR_CHECK(r2.nextCursor == "0");  // 结束
+        IR_CHECK(r2.nextCursor == "0"); // 结束
     }
 
     // 经 Dispatcher 端到端：HELLO -> GET。

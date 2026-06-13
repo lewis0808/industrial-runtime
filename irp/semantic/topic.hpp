@@ -12,7 +12,7 @@ namespace irp {
 ///
 /// 分隔符 `/`；通配符 `+`（单层）、`#`（多层，必须末段且匹配零或多层）。
 class TopicMatcher {
-public:
+  public:
     /// pattern 是否合法：段非空；`#` 仅末段且独占一段；`+` 独占一段；
     /// 字面段不含 `+`/`#`。
     [[nodiscard]] static bool isValidPattern(std::string_view pattern);
@@ -24,4 +24,4 @@ public:
     [[nodiscard]] static bool matches(std::string_view pattern, std::string_view topic);
 };
 
-}  // namespace irp
+} // namespace irp

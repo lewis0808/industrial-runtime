@@ -4,7 +4,7 @@
 
 namespace core {
 
-bool Config::loadFile(const std::string& path) {
+bool Config::loadFile(const std::string &path) {
     std::ifstream in(path);
     if (!in.is_open()) {
         return false;
@@ -14,18 +14,18 @@ bool Config::loadFile(const std::string& path) {
         std::unique_lock lock(mutex_);
         root_ = std::move(parsed);
         return true;
-    } catch (const nlohmann::json::exception&) {
+    } catch (const nlohmann::json::exception &) {
         return false;
     }
 }
 
-bool Config::loadString(const std::string& text) {
+bool Config::loadString(const std::string &text) {
     try {
         nlohmann::json parsed = nlohmann::json::parse(text, nullptr, true, true);
         std::unique_lock lock(mutex_);
         root_ = std::move(parsed);
         return true;
-    } catch (const nlohmann::json::exception&) {
+    } catch (const nlohmann::json::exception &) {
         return false;
     }
 }
@@ -40,15 +40,13 @@ nlohmann::json Config::snapshot() const {
     return root_;
 }
 
-const nlohmann::json* Config::resolve(std::string_view dottedKey) const {
-    const nlohmann::json* node = &root_;
+const nlohmann::json *Config::resolve(std::string_view dottedKey) const {
+    const nlohmann::json *node = &root_;
     std::size_t start = 0;
     while (start <= dottedKey.size()) {
         const std::size_t dot = dottedKey.find('.', start);
-        const std::string_view segment =
-            dottedKey.substr(start, dot == std::string_view::npos
-                                         ? std::string_view::npos
-                                         : dot - start);
+        const std::string_view segment = dottedKey.substr(
+            start, dot == std::string_view::npos ? std::string_view::npos : dot - start);
         if (segment.empty() || !node->is_object()) {
             return nullptr;
         }
@@ -65,4 +63,4 @@ const nlohmann::json* Config::resolve(std::string_view dottedKey) const {
     return node;
 }
 
-}  // namespace core
+} // namespace core
