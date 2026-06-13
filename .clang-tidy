@@ -1,0 +1,9 @@
+Checks: >
+  bugprone-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -readability-magic-numbers
+WarningsAsErrors: ""
+HeaderFilterRegex: ".*"
+FormatStyle: file

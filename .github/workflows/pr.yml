@@ -1,0 +1,96 @@
+name: PR 校验
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  format_check:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    name: 格式检查
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装格式化工具
+        run: sudo apt-get update && sudo apt-get install -y clang-format
+
+      - name: 检查代码格式
+        shell: bash
+        run: |
+          mapfile -t files < <(git ls-files '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "没有需要检查的源码文件。"
+            exit 0
+          fi
+          clang-format --dry-run --Werror "${files[@]}"
+
+  tidy_check:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    name: 静态检查
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 CMake
+        uses: lukka/get-cmake@latest
+
+      - name: 安装 Clang-Tidy
+        run: sudo apt-get update && sudo apt-get install -y clang-tidy
+
+      - name: 配置项目
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: 运行 Clang-Tidy
+        shell: bash
+        run: |
+          mapfile -t files < <(git ls-files '*.cc' '*.cpp' '*.cxx')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "没有需要检查的 C++ 源文件。"
+            exit 0
+          fi
+          clang-tidy --quiet -p build "${files[@]}"
+
+  build_test:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ${{ matrix.os }}
+    name: 编译测试
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 CMake
+        uses: lukka/get-cmake@latest
+
+      - name: 配置项目
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: 编译项目
+        run: cmake --build build --config Release --parallel
+
+      - name: 运行测试
+        run: ctest --test-dir build --build-config Release --output-on-failure
