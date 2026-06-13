@@ -1,0 +1,31 @@
+name: Enforce Branch Naming
+
+on:
+  create:
+
+jobs:
+  check-branch-name:
+    if: github.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Validate and enforce branch name
+        env:
+          BRANCH: ${{ github.ref_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [[ "$BRANCH" == "main" || "$BRANCH" == "dev" ]]; then
+            exit 0
+          fi
+
+          if [[ "$BRANCH" =~ ^(feature|fix|release|hotfix|chore)/.+ ]]; then
+            echo "OK: $BRANCH"
+          else
+            echo "Invalid branch name: $BRANCH"
+            echo "Required format: feature/<desc> | fix/<desc> | release/<version> | hotfix/<desc> | chore/<desc>"
+            gh api --method DELETE "/repos/$REPO/git/refs/heads/$BRANCH"
+            echo "Branch '$BRANCH' has been deleted."
+            exit 1
+          fi
