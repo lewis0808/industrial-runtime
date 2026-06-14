@@ -16,7 +16,7 @@
 
 | # | 模块 | 问题 | 建议 |
 |---|------|------|------|
-| 5 | [plugin-system](modules/plugin-system.md) | **插件生命周期仍是 C++ vtable**（`IPlugin`），要求宿主/插件同一 C++ ABI。 | 生命周期改 C 函数指针 vtable，才能真正任意语言/编译器写插件。（架构级，与 SDK 联动） |
+| ~~5~~ | [plugin-system](modules/plugin-system.md) | ~~**插件生命周期仍是 C++ vtable**（`IPlugin`），要求宿主/插件同一 C++ ABI。~~ | ✅ 已解决：v3 起生命周期改 C 函数指针 vtable `IrPluginInstance`（`createPlugin(host, cfg, out)` 填充 `self + init/start/stop/destroy`），宿主只调 C 指针、无需同一 C++ ABI；C++ 作者用 `makeInstance` 一行封装，蹦床留在插件 DLL 内。 |
 | 6 | [tag-engine](modules/tag-engine.md) | `setChangeCallback` 仅单订阅者；`remove` 不通知。 | 多订阅注册表（返回 id）+ 删除/失效通知。 |
 | 7 | [event-bus](modules/event-bus.md) | `deliver` 每条事件全量拷贝订阅表（含 `std::function`）。 | `shared_ptr<const vector>` 写时复制，派发只取引用。 |
 | 8 | [tag-engine](modules/tag-engine.md) / [runtime-engine](modules/runtime-engine.md) | 变更回调 / 流 sink 在推送者（插件）线程同步执行，慢消费者阻塞采集。 | 解耦：投递队列 / 专用分发线程。 |
@@ -47,3 +47,4 @@
 - ✅ 跨平台 DLL 加载、可中断后台线程、零外部框架单测。
 - ✅ 插件 C-ABI 边界异常隔离（宿主→插件调用 + 插件→宿主 thunk 双向 `try/catch`，单插件抛异常不拖垮运行时）。
 - ✅ 写回路由最长前缀匹配 + 同前缀冲突告警；`writers_` 经 `shared_mutex` 并发安全，支持运行期动态注册。
+- ✅ 插件生命周期纯 C 化：C 函数指针 vtable `IrPluginInstance`（ABI v3），宿主与插件无需同一 C++ ABI，任意语言/编译器可写插件。

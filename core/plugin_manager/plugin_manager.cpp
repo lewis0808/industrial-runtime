@@ -72,10 +72,10 @@ bool PluginManager::load(const std::string &path, const std::string &configPath)
         return false;
     }
 
-    auto getInfo = reinterpret_cast<irplugin::GetPluginInfoFn>(
-        findSymbol(handle, IRPLUGIN_SYM_GET_PLUGIN_INFO));
+    auto getInfo =
+        reinterpret_cast<IrPluginGetInfoFn>(findSymbol(handle, IRPLUGIN_SYM_GET_PLUGIN_INFO));
     auto createPlugin =
-        reinterpret_cast<irplugin::CreatePluginFn>(findSymbol(handle, IRPLUGIN_SYM_CREATE_PLUGIN));
+        reinterpret_cast<IrPluginCreateFn>(findSymbol(handle, IRPLUGIN_SYM_CREATE_PLUGIN));
     if (getInfo == nullptr || createPlugin == nullptr) {
         // 自动发现目录里可能混有非插件动态库（如插件的依赖库），跳过属正常情况。
         IR_LOG_INFO("跳过非插件动态库（无 {}/{}）: {}", IRPLUGIN_SYM_GET_PLUGIN_INFO,
@@ -92,32 +92,38 @@ bool PluginManager::load(const std::string &path, const std::string &configPath)
         closeLibrary(handle);
         return false;
     }
-    // 结构体仅末尾追加，宿主向后兼容：接受 <= 自身 ABI 版本的插件。
-    if (info.abi_version > IRPLUGIN_ABI_VERSION) {
-        IR_LOG_ERROR("插件 ABI 版本过新（插件 {} > 宿主 {}）: {}", info.abi_version,
-                     IRPLUGIN_ABI_VERSION, path);
+    // 接受 [MIN, VERSION] 区间：过新无法理解；过旧（< v3）createPlugin 签名不兼容，强行
+    // 调用即 UB，必须拒绝。HostApi 仅末尾追加，故区间内宿主向后兼容。
+    if (info.abi_version > IRPLUGIN_ABI_VERSION || info.abi_version < IRPLUGIN_ABI_MIN_VERSION) {
+        IR_LOG_ERROR("插件 ABI 版本不兼容（插件 {}，宿主支持 [{}, {}]）: {}", info.abi_version,
+                     IRPLUGIN_ABI_MIN_VERSION, IRPLUGIN_ABI_VERSION, path);
         closeLibrary(handle);
         return false;
     }
 
-    // 把配置文件路径原样传给插件（宿主不读取内容，由插件自行解析）。
-    irplugin::IPlugin *plugin = guardedCall("createPlugin", info.id,
-                                            static_cast<irplugin::IPlugin *>(nullptr),
-                                            [&] { return createPlugin(host_, configPath.c_str()); });
-    if (plugin == nullptr) {
-        IR_LOG_ERROR("插件 createPlugin 返回空: {}", path);
+    // 把配置文件路径原样传给插件（宿主不读取内容，由插件自行解析）。createPlugin 填充 C vtable：
+    // 成功返回 1，宿主按值持有 instance；仅 instance.self 归插件所有，经 destroy 释放。
+    IrPluginInstance instance{};
+    const bool created = guardedCall("createPlugin", info.id, false, [&] {
+        return createPlugin(host_, configPath.c_str(), &instance) != 0;
+    });
+    if (!created || instance.self == nullptr || instance.init == nullptr ||
+        instance.start == nullptr || instance.stop == nullptr || instance.destroy == nullptr) {
+        // vtable 不全则无法安全 destroy，只能关库（视为插件实现错误）。
+        IR_LOG_ERROR("插件 createPlugin 失败或未填满实例 vtable: {}", path);
         closeLibrary(handle);
         return false;
     }
 
-    if (!guardedCall("init", info.id, false, [&] { return plugin->init(); })) {
+    if (!guardedCall("init", info.id, false, [&] { return instance.init(instance.self) != 0; })) {
         IR_LOG_ERROR("插件 init 失败: {}", info.id ? info.id : "?");
-        guardedCall("destroy", info.id, false, [&] { return plugin->destroy(); });
+        guardedCall("destroy", info.id, false,
+                    [&] { return instance.destroy(instance.self) != 0; });
         closeLibrary(handle);
         return false;
     }
 
-    plugins_.push_back(Loaded{handle, info, plugin, false});
+    plugins_.push_back(Loaded{handle, info, instance, false});
     IR_LOG_INFO("插件已加载: {} ({})", info.name ? info.name : "?",
                 info.version ? info.version : "?");
     return true;
@@ -156,7 +162,8 @@ bool PluginManager::startAll() {
     bool ok = true;
     for (auto &p : plugins_) {
         if (!p.started) {
-            if (guardedCall("start", p.info.id, false, [&] { return p.plugin->start(); })) {
+            if (guardedCall("start", p.info.id, false,
+                            [&] { return p.instance.start(p.instance.self) != 0; })) {
                 p.started = true;
             } else {
                 ok = false;
@@ -171,7 +178,8 @@ bool PluginManager::stopAll() {
     bool ok = true;
     for (auto &p : plugins_) {
         if (p.started) {
-            if (!guardedCall("stop", p.info.id, false, [&] { return p.plugin->stop(); })) {
+            if (!guardedCall("stop", p.info.id, false,
+                             [&] { return p.instance.stop(p.instance.self) != 0; })) {
                 ok = false;
                 IR_LOG_ERROR("插件 stop 失败: {}", p.info.id ? p.info.id : "?");
             }
@@ -190,14 +198,16 @@ IrPluginInfo PluginManager::infoAt(std::size_t index) const {
 
 void PluginManager::unloadAll() noexcept {
     for (auto it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
-        if (it->plugin != nullptr) {
+        if (it->instance.self != nullptr) {
             if (it->started) {
-                guardedCall("stop", it->info.id, false, [&] { return it->plugin->stop(); });
+                guardedCall("stop", it->info.id, false,
+                            [&] { return it->instance.stop(it->instance.self) != 0; });
                 it->started = false;
             }
             // 在插件自身堆上释放。本函数 noexcept，插件抛异常会 terminate，故必须兜底。
-            guardedCall("destroy", it->info.id, false, [&] { return it->plugin->destroy(); });
-            it->plugin = nullptr;
+            guardedCall("destroy", it->info.id, false,
+                        [&] { return it->instance.destroy(it->instance.self) != 0; });
+            it->instance.self = nullptr;
         }
         if (it->handle != nullptr) {
             closeLibrary(it->handle);

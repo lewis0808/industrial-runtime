@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 
-#include "irplugin/plugin.hpp"
 #include "irplugin/plugin_abi.h"
 
 namespace core {
@@ -46,7 +45,7 @@ class PluginManager {
     struct Loaded {
         void *handle; ///< 平台相关的动态库句柄
         IrPluginInfo info;
-        irplugin::IPlugin *plugin; ///< 由插件 DLL 分配，须经 destroy() 释放
+        IrPluginInstance instance; ///< C vtable（宿主按值持有）；instance.self 由插件分配，经 destroy 释放
         bool started;
     };
 
