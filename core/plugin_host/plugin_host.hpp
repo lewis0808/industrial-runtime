@@ -1,5 +1,6 @@
 #pragma once
 
+#include <shared_mutex>
 #include <string>
 #include <vector>
 
@@ -26,6 +27,7 @@ class PluginHost {
     [[nodiscard]] const IrPluginHostApi *abi() const noexcept { return &abi_; }
 
     /// 把一次写回按 topic 前缀路由到注册的插件处理器。
+    /// 多个前缀命中时取**最长前缀**的处理器（与注册顺序无关）。
     /// 返回 true 表示某插件已受理；无匹配前缀或插件拒绝返回 false。
     bool write(const TagValue &tag);
 
@@ -45,6 +47,9 @@ class PluginHost {
 
     RuntimeApi *api_;
     IrPluginHostApi abi_{};
+    // 注册（register_writer，启动期）取独占锁，写回（write，IRSP 线程）取共享锁。
+    // 支持运行期动态注册与并发写回。
+    mutable std::shared_mutex writersMutex_;
     std::vector<WriteReg> writers_;
 };
 

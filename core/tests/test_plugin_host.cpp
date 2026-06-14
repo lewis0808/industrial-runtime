@@ -51,6 +51,52 @@ int main() {
         IR_CHECK(host.write(TagValue{"zzz/none", 3}) == false);
     }
 
+    // 最长前缀匹配：多个前缀命中时取最长者，与注册顺序无关。
+    {
+        OkApi api;
+        PluginHost host(api);
+        const auto *abi = host.abi();
+        // 先注册短前缀，再注册长前缀（验证不依赖注册顺序）。
+        int hitShort = 0;
+        int hitLong = 0;
+        abi->register_writer(abi->ctx, "a/", &hitShort, [](void *ctx, const IrPluginTagValue *) {
+            ++*static_cast<int *>(ctx);
+            return 1;
+        });
+        abi->register_writer(abi->ctx, "a/b/", &hitLong, [](void *ctx, const IrPluginTagValue *) {
+            ++*static_cast<int *>(ctx);
+            return 1;
+        });
+        // "a/b/x" 同时匹配 "a/" 与 "a/b/"，应路由到更长的 "a/b/"。
+        IR_CHECK(host.write(TagValue{"a/b/x", 1}) == true);
+        IR_CHECK_EQ(hitLong, 1);
+        IR_CHECK_EQ(hitShort, 0);
+        // "a/y" 只匹配 "a/"。
+        IR_CHECK(host.write(TagValue{"a/y", 2}) == true);
+        IR_CHECK_EQ(hitShort, 1);
+        IR_CHECK_EQ(hitLong, 1);
+    }
+
+    // 同前缀冲突：相同 prefix 第二次注册被忽略，以先注册者为准。
+    {
+        OkApi api;
+        PluginHost host(api);
+        const auto *abi = host.abi();
+        int hitFirst = 0;
+        int hitSecond = 0;
+        abi->register_writer(abi->ctx, "dup/", &hitFirst, [](void *ctx, const IrPluginTagValue *) {
+            ++*static_cast<int *>(ctx);
+            return 1;
+        });
+        abi->register_writer(abi->ctx, "dup/", &hitSecond, [](void *ctx, const IrPluginTagValue *) {
+            ++*static_cast<int *>(ctx);
+            return 1;
+        });
+        IR_CHECK(host.write(TagValue{"dup/x", 1}) == true);
+        IR_CHECK_EQ(hitFirst, 1);
+        IR_CHECK_EQ(hitSecond, 0);
+    }
+
     // push thunk：宿主 RuntimeApi 抛异常不得逃逸回插件，thunk 返回 0。
     {
         ThrowingApi api;

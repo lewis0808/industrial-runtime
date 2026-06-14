@@ -21,7 +21,7 @@
 | 7 | [event-bus](modules/event-bus.md) | `deliver` 每条事件全量拷贝订阅表（含 `std::function`）。 | `shared_ptr<const vector>` 写时复制，派发只取引用。 |
 | 8 | [tag-engine](modules/tag-engine.md) / [runtime-engine](modules/runtime-engine.md) | 变更回调 / 流 sink 在推送者（插件）线程同步执行，慢消费者阻塞采集。 | 解耦：投递队列 / 专用分发线程。 |
 | 9 | [runtime-engine](modules/runtime-engine.md) | `init` 注释称配「队列容量等」，实际只配 Logger；EventBus 容量等构造期写死。 | 把队列容量、分片数等接入 Config，言行一致。 |
-| 10 | [plugin-system](modules/plugin-system.md) | 写回路由 O(N) 首匹配，无最长前缀、无冲突检测。 | 最长前缀匹配 + 同前缀冲突告警。 |
+| ~~10~~ | [plugin-system](modules/plugin-system.md) | ~~写回路由 O(N) 首匹配，无最长前缀、无冲突检测；`writers_` 无同步。~~ | ✅ 已解决：最长前缀匹配 + 同前缀去重告警 + `shared_mutex`（注册独占/写回共享，锁内选出出锁调用），支持运行期动态注册。`test_plugin_host` 覆盖。 |
 | 11 | [event-bus](modules/event-bus.md) | 满即静默丢弃（仅计数），过滤仅 severity+单 category。 | 溢出策略可选 + 丢弃速率指标 + 更强过滤（source/通配）。 |
 | 12 | [scheduler](modules/scheduler.md) | 求最近到期 O(N)；周期按实际执行点算会漂移。 | 任务多时改最小堆；按需 `nextRun += interval` + 追赶策略。 |
 
@@ -46,3 +46,4 @@
 - ✅ 数据面纯 C ABI（结构/字符串/枚举跨边界安全）。
 - ✅ 跨平台 DLL 加载、可中断后台线程、零外部框架单测。
 - ✅ 插件 C-ABI 边界异常隔离（宿主→插件调用 + 插件→宿主 thunk 双向 `try/catch`，单插件抛异常不拖垮运行时）。
+- ✅ 写回路由最长前缀匹配 + 同前缀冲突告警；`writers_` 经 `shared_mutex` 并发安全，支持运行期动态注册。

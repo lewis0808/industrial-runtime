@@ -3,6 +3,8 @@
 #include <chrono>
 #include <cstdint>
 #include <exception>
+#include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <utility>
 #include <variant>
@@ -210,6 +212,16 @@ void PluginHost::registerWriterThunk(void *ctx, const char *prefix, void *plugin
     }
     auto *self = static_cast<PluginHost *>(ctx);
     try {
+        std::unique_lock lock(self->writersMutex_);
+        // 同前缀冲突告警：完全相同的 prefix 无法区分归属，最长前缀相同时以先注册者为准。
+        // （`a/` 与 `a/b/` 属正常分层，不在此列。）
+        for (const auto &reg : self->writers_) {
+            if (reg.prefix == prefix) {
+                IR_LOG_WARN("写回前缀冲突：'{}' 已被注册，新处理器将被忽略（以先注册者为准）",
+                            prefix);
+                return;
+            }
+        }
         self->writers_.push_back(WriteReg{std::string(prefix), pluginCtx, handler});
     } catch (...) {
         // 注册期内存不足等：放弃该注册，不让异常逃逸回插件。
@@ -218,31 +230,47 @@ void PluginHost::registerWriterThunk(void *ctx, const char *prefix, void *plugin
 }
 
 bool PluginHost::write(const TagValue &tag) {
-    for (const auto &reg : writers_) {
-        // 按 topic 前缀归属：首个匹配前缀的插件负责。
-        if (tag.name.size() >= reg.prefix.size() &&
-            tag.name.compare(0, reg.prefix.size(), reg.prefix) == 0) {
-            if (reg.handler == nullptr) {
-                return false;
+    // 锁内只选出最长前缀匹配的处理器并拷出，出锁后再调用插件代码——
+    // 不持锁执行外部代码（避免长持锁 / 潜在死锁），同时保证与并发注册的安全。
+    void *pluginCtx = nullptr;
+    IrPluginWriteFn handler = nullptr;
+    std::size_t bestLen = 0;
+    bool matched = false;
+    {
+        std::shared_lock lock(writersMutex_);
+        for (const auto &reg : writers_) {
+            if (reg.handler == nullptr || tag.name.size() < reg.prefix.size() ||
+                tag.name.compare(0, reg.prefix.size(), reg.prefix) != 0) {
+                continue;
             }
-            IrPluginTagValue c{};
-            c.name = {tag.name.data(), tag.name.size()};
-            c.timestamp_ns = fromTimestamp(tag.timestamp);
-            std::string strHolder;
-            fromVariant(c.value, tag.value, strHolder);
-            // 写回处理器是插件代码，经 C-ABI 调用，异常逃逸即 UB，宿主侧拦截按未受理处理。
-            try {
-                return reg.handler(reg.pluginCtx, &c) > 0;
-            } catch (const std::exception &e) {
-                IR_LOG_ERROR("插件写回处理器抛出异常（前缀 {}）：{}", reg.prefix, e.what());
-                return false;
-            } catch (...) {
-                IR_LOG_ERROR("插件写回处理器抛出未知异常（前缀 {}）", reg.prefix);
-                return false;
+            // 最长前缀胜出；长度相同（同前缀，注册时已去重）保留先注册者。
+            if (!matched || reg.prefix.size() > bestLen) {
+                bestLen = reg.prefix.size();
+                pluginCtx = reg.pluginCtx;
+                handler = reg.handler;
+                matched = true;
             }
         }
     }
-    return false;
+    if (!matched) {
+        return false;
+    }
+
+    IrPluginTagValue c{};
+    c.name = {tag.name.data(), tag.name.size()};
+    c.timestamp_ns = fromTimestamp(tag.timestamp);
+    std::string strHolder;
+    fromVariant(c.value, tag.value, strHolder);
+    // 写回处理器是插件代码，经 C-ABI 调用，异常逃逸即 UB，宿主侧拦截按未受理处理。
+    try {
+        return handler(pluginCtx, &c) > 0;
+    } catch (const std::exception &e) {
+        IR_LOG_ERROR("插件写回处理器抛出异常：{}", e.what());
+        return false;
+    } catch (...) {
+        IR_LOG_ERROR("插件写回处理器抛出未知异常");
+        return false;
+    }
 }
 
 } // namespace core
