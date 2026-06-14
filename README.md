@@ -22,11 +22,10 @@
 |------|------|------|
 | `core/` | 运行时内核：Tag/Event 存储、事件总线、调度、配置、日志、插件宿主 | ✅ 可用 |
 | `sdk/plugin-sdk/` | 设备插件开发 SDK（C-ABI + `IPlugin`） | ✅ 可用 |
-| `plugins/` | 动态加载的设备插件（`example` + `s7` 真 snap7） | 🟢 example + S7(snap7) |
+| （插件） | 设备插件作为**独立工程**开发（拷 SDK 头），编出动态库放进运行时同级 `plugins/` 自动加载 | 🟢 机制可用 |
 | `irp/` | IRP 协议（规格 + 编解码 + 语义 + WebSocket 服务） | ✅ V1 可用 |
 | `sdk/irp-client/` | 多语言客户端 SDK | 🟡 JS /Python |
 | `stream/` | 高带宽流数据（图像/点云/二进制） | ⬜ 未开始 |
-| `drivers/` | 传统 PLC 驱动（可选） | ⬜ 未开始 |
 | `tools/` | 开发工具（format / lint 脚本） | ✅ 可用 |
 
 ---
@@ -44,8 +43,9 @@
   命令：HELLO/PING/BYE、GET/MGET/EXISTS/SCAN、WATCH/SUBSCRIBE/SUBEVENT、**SET 写回**。
 - **SET 写回**：应用(IRP SET) → Runtime → 插件(按 topic 前缀归属) → 设备，同步「已受理」语义。
 - **IRP 客户端**：`JS`（含 HTML 实时监控页）、`TS`（强类型 + dist）、`Python`（asyncio，pip wheel）。
-- **可运行**：`IndustrialRuntime` 启动 core + 按配置加载插件 + IRP/WebSocket(9777) + 心跳演示，支持 SET。
-- **测试**：16 个 C++ 单元/集成测试（CTest）+ JS/TS/Python codec 单测，全绿。
+- **可运行**：`IndustrialRuntime` 启动 core + 自动发现并加载同级 `plugins/` 下的插件 + IRP/WebSocket(9777) + 心跳演示，支持 SET。
+- **插件自动发现**：扫描可执行文件同级 `plugins/`（动态库，文件名任意）+ `config/`（配置）；设备插件作为独立工程开发（见 `sdk/plugin-sdk/README.md`）。
+- **测试**：core / IRP 的单元与集成测试（CTest）+ JS/TS/Python codec 单测。插件加载/写回的端到端验证随插件移至独立插件工程。
 - **工具链**：vcpkg 清单、`/utf-8`、`.clang-format` / `.clang-tidy`、`tools/lint.ps1`、
   `compile_commands.json` 导出。
 
@@ -66,22 +66,21 @@
 
 ### 2. 多语言 SDK（`sdk/irp-client/`）
 - [x] **JavaScript**（`sdk/irp-client/JS`，浏览器 + Node，含 HTML 实时监控页）。
-- [x] **TypeScript**（`sdk/irp-client/TS`，强类型 + `.d.ts`，tsc 构建）。
+- [ ] **TypeScript**（`sdk/irp-client/TS`，强类型 + `.d.ts`，tsc 构建）。
 - [x] **Python**（`sdk/irp-client/Python`，asyncio，纯 Python，pip wheel）。
-- [ ] **Java**（企业 / Android）。
+- [ ] **Java**（企业）。
 - [ ] **C++**（复用 `irp_codec`）。
 - [ ] **SDK 自动生成**：由 IRP 命令/类型定义机读生成多语言客户端。
 
-### 3. 设备插件（`plugins/`）
+### 3. 设备插件（独立工程开发）
+- [x] **自动发现 + 配置分离**：runtime 扫描同级 `plugins/`（动态库，文件名任意）自动加载；
+      配置取自 `config/<dll basename>.json`（`createPlugin` 透传路径，插件自解析、可热扫描）。
+- [x] **插件独立化**：插件不在本仓库内，作为独立工程开发（拷 `sdk/plugin-sdk` 头）。
+      参考实现：`industrial-runtime-s7`（S7/snap7，含可复用 `libs7` + 多 PLC + 配置热扫描）。
 - [ ] **插件生命周期改纯 C vtable**（COM-lite）：当前 `createPlugin` 返回 C++ `IPlugin*`、
       `init/start/stop/destroy` 是 C++ 虚函数，**实际只支持 C++**；改成 C 函数指针表后才能真正
       "任意语言"写插件（数据/host 面已是纯 C ABI）。
-- [x] **`s7` 插件（真 snap7）**：jthread 周期采集 + 写回 + S7 大端 DB 编解码；`Snap7Backend`
-      用 snap7 `Cli_*` 真 TCP/S7comm 连 PLC；端到端测试用 snap7 `Srv_*` 起虚拟 PLC（无需硬件）。
-      `S7Backend` 抽象保留内存模拟备选。
 - [ ] 其它真实插件：`modbus` / `opcua` / 相机（`camera`）/ 雷达（`radar`）。
-- [ ] 插件**配置化**：把 PLC 地址 / tag 映射 / 轮询周期等从内置表改为配置驱动
-      （需插件配置传递机制）。
 - [ ] PluginManager 增强：热加载/卸载、健康检查、隔离与崩溃恢复。
 
 ### 4. Stream 体系（`stream/`）
