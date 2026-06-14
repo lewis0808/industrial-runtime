@@ -1,5 +1,7 @@
 #include "plugin_manager/plugin_manager.hpp"
 
+#include <filesystem>
+
 #include "logger/logger.hpp"
 
 #if defined(_WIN32)
@@ -14,7 +16,9 @@ namespace {
 
 void *openLibrary(const std::string &path) {
 #if defined(_WIN32)
-    return ::LoadLibraryA(path.c_str());
+    // LOAD_WITH_ALTERED_SEARCH_PATH：以 dll 所在目录（path 为绝对路径）作为依赖搜索起点，
+    // 使插件能找到与其同目录的依赖库（如 s7_plugin.dll 旁的 snap7.dll）。
+    return ::LoadLibraryExA(path.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
 #else
     return ::dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
 #endif
@@ -42,7 +46,7 @@ PluginManager::PluginManager(const IrPluginHostApi *host) noexcept : host_(host)
 
 PluginManager::~PluginManager() { unloadAll(); }
 
-bool PluginManager::load(const std::string &path) {
+bool PluginManager::load(const std::string &path, const std::string &configPath) {
     void *handle = openLibrary(path);
     if (handle == nullptr) {
         IR_LOG_ERROR("插件加载失败，无法打开动态库: {}", path);
@@ -54,8 +58,9 @@ bool PluginManager::load(const std::string &path) {
     auto createPlugin =
         reinterpret_cast<irplugin::CreatePluginFn>(findSymbol(handle, IRPLUGIN_SYM_CREATE_PLUGIN));
     if (getInfo == nullptr || createPlugin == nullptr) {
-        IR_LOG_ERROR("插件缺少导出符号 {}/{}: {}", IRPLUGIN_SYM_GET_PLUGIN_INFO,
-                     IRPLUGIN_SYM_CREATE_PLUGIN, path);
+        // 自动发现目录里可能混有非插件动态库（如插件的依赖库），跳过属正常情况。
+        IR_LOG_INFO("跳过非插件动态库（无 {}/{}）: {}", IRPLUGIN_SYM_GET_PLUGIN_INFO,
+                    IRPLUGIN_SYM_CREATE_PLUGIN, path);
         closeLibrary(handle);
         return false;
     }
@@ -69,7 +74,8 @@ bool PluginManager::load(const std::string &path) {
         return false;
     }
 
-    irplugin::IPlugin *plugin = createPlugin(host_);
+    // 把配置文件路径原样传给插件（宿主不读取内容，由插件自行解析）。
+    irplugin::IPlugin *plugin = createPlugin(host_, configPath.c_str());
     if (plugin == nullptr) {
         IR_LOG_ERROR("插件 createPlugin 返回空: {}", path);
         closeLibrary(handle);
@@ -87,6 +93,35 @@ bool PluginManager::load(const std::string &path) {
     IR_LOG_INFO("插件已加载: {} ({})", info.name ? info.name : "?",
                 info.version ? info.version : "?");
     return true;
+}
+
+std::size_t PluginManager::loadDirectory(const std::string &pluginDir,
+                                         const std::string &configDir) {
+    namespace fs = std::filesystem;
+#if defined(_WIN32)
+    const char *ext = ".dll";
+#elif defined(__APPLE__)
+    const char *ext = ".dylib";
+#else
+    const char *ext = ".so";
+#endif
+    std::error_code ec;
+    if (!fs::is_directory(pluginDir, ec)) {
+        IR_LOG_INFO("插件目录不存在，跳过自动发现: {}", pluginDir);
+        return 0;
+    }
+    std::size_t loaded = 0;
+    for (const auto &entry : fs::directory_iterator(pluginDir, ec)) {
+        if (!entry.is_regular_file() || entry.path().extension() != ext) {
+            continue;
+        }
+        // 配置文件路径：configDir/<dll basename>.json（与 plugins 目录分离）。
+        const auto configPath = (fs::path(configDir) / entry.path().stem()).string() + ".json";
+        if (load(entry.path().string(), configPath)) {
+            ++loaded;
+        }
+    }
+    return loaded;
 }
 
 bool PluginManager::startAll() {

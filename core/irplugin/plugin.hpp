@@ -158,7 +158,10 @@ class Host {
 };
 
 /// 宿主侧用于解析导出函数的指针类型。
+/// createPlugin 第二参数为该插件配置文件的完整路径（UTF-8）。宿主按约定算出
+/// `<exe>/config/<dll basename>.json` 传入（仅传路径，宿主不读取/不解析内容）；
+/// 插件自行读取并按需热扫描该文件，文件不存在时应回退内置默认值。无需配置的插件忽略它。
 using GetPluginInfoFn = IrPluginInfo (*)();
-using CreatePluginFn = IPlugin *(*)(const IrPluginHostApi *);
+using CreatePluginFn = IPlugin *(*)(const IrPluginHostApi *, const char *config_path);
 
 } // namespace irplugin

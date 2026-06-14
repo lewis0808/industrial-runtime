@@ -33,13 +33,5 @@ target_link_libraries(test_irp_e2e
 target_include_directories(test_irp_e2e PRIVATE ${CMAKE_SOURCE_DIR}/core)
 add_test(NAME test_irp_e2e COMMAND test_irp_e2e)
 
-# 端到端：SET 写回（加载示例插件，经 IRP SET -> 插件 onWrite -> GET 读回）。
-add_executable(test_irp_set_e2e test_irp_set_e2e.cpp)
-target_link_libraries(test_irp_set_e2e
-    PRIVATE irp_server core_runtime_engine core_plugin_host core_plugin_manager
-            plugin_sdk irp_codec ${IRP_LWS_TARGET})
-target_include_directories(test_irp_set_e2e PRIVATE ${CMAKE_SOURCE_DIR}/core)
-add_dependencies(test_irp_set_e2e example_plugin)
-target_compile_definitions(test_irp_set_e2e
-    PRIVATE EXAMPLE_PLUGIN_PATH="$<TARGET_FILE:example_plugin>")
-add_test(NAME test_irp_set_e2e COMMAND test_irp_set_e2e)
+# 注：SET 写回的端到端测试原依赖内置示例插件，随插件移出本仓库而移除；
+# 该链路由独立插件工程（如 industrial-runtime-s7）的集成测试覆盖。

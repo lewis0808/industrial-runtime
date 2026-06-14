@@ -1,4 +1,4 @@
-// 示例插件：演示 plugin-sdk 的标准实现方式。
+// 示例插件：演示 irplugin SDK 的标准用法。
 // - start() 推送若干 Tag/事件，验证上行链路；
 // - 注册 onWrite("example/")，演示写回（应用 SET -> Runtime -> 插件 -> 设备）：
 //   收到写后模拟"写入设备成功"，把值原样回推为 Tag（设备回读）。
@@ -80,6 +80,8 @@ IRPLUGIN_EXPORT IrPluginInfo getPluginInfo() {
     return IrPluginInfo{IRPLUGIN_ABI_VERSION, "example", "Example Plugin", "1.0.0"};
 }
 
-IRPLUGIN_EXPORT irplugin::IPlugin *createPlugin(const IrPluginHostApi *host) {
+// 第二参数为该插件配置文件完整路径（runtime 透传，本示例无需配置，忽略）。
+IRPLUGIN_EXPORT irplugin::IPlugin *createPlugin(const IrPluginHostApi *host,
+                                                const char * /*config_path*/) {
     return new ExamplePlugin(host);
 }

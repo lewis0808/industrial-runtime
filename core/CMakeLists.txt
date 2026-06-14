@@ -48,12 +48,13 @@ target_link_libraries(core_runtime_engine
 )
 
 # ---- PluginHost（RuntimeApi -> C-ABI 宿主接口适配） ----
+# ABI 头来自 core 自带副本 core/irplugin/（经 core_common 的 core/ include 根解析）。
 add_library(core_plugin_host STATIC plugin_host/plugin_host.cpp)
-target_link_libraries(core_plugin_host PUBLIC core_common core_runtime_engine plugin_sdk)
+target_link_libraries(core_plugin_host PUBLIC core_common core_runtime_engine)
 
 # ---- PluginManager（跨平台 DLL 加载 + 生命周期） ----
 add_library(core_plugin_manager STATIC plugin_manager/plugin_manager.cpp)
-target_link_libraries(core_plugin_manager PUBLIC core_common plugin_sdk PRIVATE core_logger)
+target_link_libraries(core_plugin_manager PUBLIC core_common PRIVATE core_logger)
 if(NOT WIN32)
     target_link_libraries(core_plugin_manager PRIVATE ${CMAKE_DL_LIBS})
 endif()

@@ -28,10 +28,9 @@ if(IR_BUILD_TESTS)
     enable_testing()
 endif()
 
-# 顺序：plugin-sdk 与示例插件须先于 core 定义
-# （core 链接 plugin_sdk，core/tests 的端到端测试依赖 example_plugin 目标）。
-add_subdirectory(sdk/plugin-sdk)
-add_subdirectory(plugins/example)
+# sdk/plugin-sdk 是面向外部开发者的交付物（同 sdk/irp-client，仅头 + 示例），不进主构建。
+# core 作为宿主自带一份 ABI 头副本（core/irplugin/）。设备插件作为独立工程开发（拷 SDK 头），
+# 编出的动态库放进运行时同级 plugins/ 即可。
 add_subdirectory(core)
 add_subdirectory(irp)
 
