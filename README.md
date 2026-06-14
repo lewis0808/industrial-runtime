@@ -84,7 +84,9 @@
       `init/start/stop/destroy` 是 C++ 虚函数，**实际只支持 C++**；改成 C 函数指针表后才能真正
       "任意语言"写插件（数据/host 面已是纯 C ABI）。
 - [ ] 其它真实插件：`modbus` / `opcua` / 相机（`camera`）/ 雷达（`radar`）。
-- [ ] PluginManager 增强：热加载/卸载、健康检查、隔离与崩溃恢复（控制面入口见 §7 admin 接口）。
+- [~] PluginManager 增强：**按 id 热卸载 / reload 已落地**（owner 归属 + 引用计数排空，写回路径无
+      use-after-free；线程安全；经**独立 admin 控制面通道**触发，见 §7）。健康检查、进程外隔离/
+      崩溃恢复待做 —— 隔离方案探索见 [core/doc/modules/plugin-out-of-process.md](core/doc/modules/plugin-out-of-process.md)。
 
 ### 4. Stream 体系（`stream/`）
 - [ ] `stream/` 模块：`Frame` / `PointCloud` / `BinaryBlob` 的高带宽传输与处理。
@@ -109,10 +111,11 @@
 
 - [ ] **管理控制台 TUI**（Rust + ratatui）：topic 树浏览、实时值 / 推送监控、性能指标面板、
       IRSP 调试查看。**第一版纯观测**——基于 Rust SDK + `INFO/STATS`，core 零改动即可落地。
-- [ ] **控制面 / Admin 接口**：改 config、插件 load/unload/reload/重配等**有副作用**的管理操作，
-      走**独立 admin 通道**（独立端口 / 本机 named pipe），与 IRSP 数据面解耦；TUI 第二阶段依赖。
-- [ ] **运行时动态重配**（控制面前置能力）：config 运行时可写 + 热生效；
-      插件运行时生命周期（见 §3 PluginManager 热加载 / 卸载增强）。当前两者均为启动期一次性。
+- [~] **控制面 / Admin 接口**：走**独立 admin 通道**（本机 named pipe / AF_UNIX），与 IRSP 数据面解耦。
+      **已落地**：`admin/` 模块 + `PLUGIN LIST/UNLOAD/RELOAD`（插件生命周期管理，见 [admin/README.md](admin/README.md)）。
+      待扩展：改 config / 重配等更多有副作用操作；鉴权（token / 管道 ACL）。TUI 第二阶段依赖。
+- [~] **运行时动态重配**（控制面前置能力）：config 运行时可写 + 热生效（待做）；
+      **插件运行时生命周期已可热卸载/reload**（见 §3），经独立 admin 通道触发。config 热重配仍为启动期一次性。
 - [ ] **服务化 / 守护进程**：注册为 Windows 服务 / systemd unit，开机自启、后台运行（`net start` 等）。
       后台化后**无前台控制台**（现 `main.cpp` 的 Ctrl+C / 日志打屏交互消失），
       状态观测与启停均改由 TUI + admin 面承载——故服务化与控制台是配套设计，非独立两件事。
@@ -124,7 +127,7 @@
 ```bash
 # 配置 + 构建（CLion 或命令行，vcpkg 工具链）
 cmake --preset default && cmake --build cmake-build-debug
-ctest --test-dir cmake-build-debug --output-on-failure   # 16 个测试
+ctest --test-dir cmake-build-debug --output-on-failure   # 17 个测试
 
 # 运行运行时（IRSP 监听 9777）
 ./cmake-build-debug/IndustrialRuntime

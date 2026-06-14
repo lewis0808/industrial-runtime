@@ -37,8 +37,10 @@ endif()
 # 编出的动态库放进运行时同级 plugins/ 即可。
 add_subdirectory(core)
 add_subdirectory(irsp)
+add_subdirectory(admin) # 本机控制面通道（依赖 core，独立于 irsp）
 
-# 可执行入口：组合 core 运行时 + IRSP WebSocket 服务（在 core/irsp 之后定义）。
+# 可执行入口：组合 core 运行时 + IRSP 数据面 + admin 控制面（在各模块之后定义）。
 add_executable(IndustrialRuntime core/main.cpp)
 target_link_libraries(IndustrialRuntime
-    PRIVATE core_runtime_engine core_logger core_plugin_host core_plugin_manager irsp_server)
+    PRIVATE core_runtime_engine core_logger core_plugin_host core_plugin_manager
+            irsp_server admin_server)
