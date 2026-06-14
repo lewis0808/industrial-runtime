@@ -63,6 +63,8 @@
 - [ ] **V3 传输 TCP/TLV**：高性能裸 TCP（4 字节大端长度前缀），语义不变。
 - [ ] **鉴权**：`AUTH`（V1 预留）→ JWT/Token/RBAC/租户。
 - [ ] **背压 / 错误路径**：每连接发送队列溢出策略、事件推送 e2e 测试、限流。
+- [ ] **INFO / STATS（只读观测）**：暴露 runtime 运行指标（tag 数、事件吞吐 / 丢弃、连接数、
+      订阅数、插件状态），供管理控制台与监控读取；**只读**，归入数据面观测（不引入副作用）。
 
 ### 2. 多语言 SDK（`sdk/irsp-client/`）
 - [x] **JavaScript**（`sdk/irsp-client/JS`，浏览器 + Node，含 HTML 实时监控页）。
@@ -70,6 +72,7 @@
 - [x] **Python**（`sdk/irsp-client/Python`，asyncio，纯 Python，pip wheel）。
 - [ ] **Java**（企业）。
 - [ ] **C++**（复用 `irsp_codec`）。
+- [ ] **Rust**（`sdk/irsp-client/Rust`，管理控制台 TUI 的依赖底座；编解码不内嵌进 TUI）。
 - [ ] **SDK 自动生成**：由 IRSP 命令/类型定义机读生成多语言客户端。
 
 ### 3. 设备插件（独立工程开发）
@@ -81,7 +84,7 @@
       `init/start/stop/destroy` 是 C++ 虚函数，**实际只支持 C++**；改成 C 函数指针表后才能真正
       "任意语言"写插件（数据/host 面已是纯 C ABI）。
 - [ ] 其它真实插件：`modbus` / `opcua` / 相机（`camera`）/ 雷达（`radar`）。
-- [ ] PluginManager 增强：热加载/卸载、健康检查、隔离与崩溃恢复。
+- [ ] PluginManager 增强：热加载/卸载、健康检查、隔离与崩溃恢复（控制面入口见 §7 admin 接口）。
 
 ### 4. Stream 体系（`stream/`）
 - [ ] `stream/` 模块：`Frame` / `PointCloud` / `BinaryBlob` 的高带宽传输与处理。
@@ -97,6 +100,22 @@
 - [ ] CI 完善（构建 + CTest + JS test + clang-format/tidy 校验）。
 - [ ] 示例配置文件、部署文档、容器化。
 - [ ] 跨平台验证（Linux / macOS）。
+
+### 7. 管理控制台与服务化（Ops / 运维侧）
+
+对标 `k9s` / `lazydocker`：一个面板化的运维入口，而非 `mysql` 那样的纯命令 REPL。
+关键设计原则：**观测（只读、走 IRSP 数据面）与控制（有副作用、走独立 admin 面）分离**，
+避免把控制面命令污染 IRSP 数据总线。
+
+- [ ] **管理控制台 TUI**（Rust + ratatui）：topic 树浏览、实时值 / 推送监控、性能指标面板、
+      IRSP 调试查看。**第一版纯观测**——基于 Rust SDK + `INFO/STATS`，core 零改动即可落地。
+- [ ] **控制面 / Admin 接口**：改 config、插件 load/unload/reload/重配等**有副作用**的管理操作，
+      走**独立 admin 通道**（独立端口 / 本机 named pipe），与 IRSP 数据面解耦；TUI 第二阶段依赖。
+- [ ] **运行时动态重配**（控制面前置能力）：config 运行时可写 + 热生效；
+      插件运行时生命周期（见 §3 PluginManager 热加载 / 卸载增强）。当前两者均为启动期一次性。
+- [ ] **服务化 / 守护进程**：注册为 Windows 服务 / systemd unit，开机自启、后台运行（`net start` 等）。
+      后台化后**无前台控制台**（现 `main.cpp` 的 Ctrl+C / 日志打屏交互消失），
+      状态观测与启停均改由 TUI + admin 面承载——故服务化与控制台是配套设计，非独立两件事。
 
 ---
 

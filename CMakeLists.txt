@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
-project(IndustrialRuntime VERSION 1.0.0 LANGUAGES CXX)
+project(IndustrialRuntime VERSION 0.1.0 LANGUAGES CXX)
+
+# 发版预发布标记：留空 = 正式版；填 beta.1 / rc.1 等 = 预发布。
+# 合并到 main 时，release workflow 据此组合 tag（vX.Y.Z 或 vX.Y.Z-beta.1）并标记 GitHub prerelease。
+set(IR_VERSION_PRERELEASE "beta")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

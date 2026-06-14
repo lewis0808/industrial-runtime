@@ -1,0 +1,118 @@
+name: 发布
+# PR 合并到 main 后触发：读取版本号 → 编译 → 打 tag → 上传 release。
+# 版本来源：CMakeLists.txt 的 project(... VERSION x.y.z) + IR_VERSION_PRERELEASE。
+# 若对应 tag 已存在（本次合并未改版本号），则跳过发布，不报错。
+"on":
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # 仅在 PR 真正被合并时执行（关闭但未合并的 PR 不触发）。
+    if: ${{ github.event.pull_request.merged == true }}
+    runs-on: windows-latest
+    name: 打 tag 并发布
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 需要完整 tag 历史以判断版本是否已发布
+
+      - name: 解析版本号
+        id: ver
+        shell: bash
+        run: |
+          version=$(sed -n 's/.*project([^)]*VERSION[[:space:]]\+\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p' CMakeLists.txt | head -1)
+          pre=$(sed -n 's/.*IR_VERSION_PRERELEASE[[:space:]]*"\([^"]*\)".*/\1/p' CMakeLists.txt | head -1)
+
+          if [ -z "$version" ]; then
+            echo "::error::无法从 CMakeLists.txt 解析 project VERSION"
+            exit 1
+          fi
+
+          if [ -n "$pre" ]; then
+            tag="v${version}-${pre}"
+            prerelease=true
+          else
+            tag="v${version}"
+            prerelease=false
+          fi
+
+          echo "version=$version"        >> "$GITHUB_OUTPUT"
+          echo "tag=$tag"                >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease"  >> "$GITHUB_OUTPUT"
+
+          # tag 已存在则跳过后续发布步骤
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "tag $tag 已存在，跳过发布。"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "将发布 $tag (prerelease=$prerelease)。"
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 安装 CMake
+        if: ${{ steps.ver.outputs.should_release == 'true' }}
+        uses: lukka/get-cmake@latest
+
+      - name: 配置项目
+        if: ${{ steps.ver.outputs.should_release == 'true' }}
+        shell: bash
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+
+      - name: 编译项目
+        if: ${{ steps.ver.outputs.should_release == 'true' }}
+        run: cmake --build build --config Release --parallel
+
+      - name: 运行测试
+        if: ${{ steps.ver.outputs.should_release == 'true' }}
+        run: ctest --test-dir build --build-config Release --output-on-failure
+
+      - name: 打包产物
+        id: package
+        if: ${{ steps.ver.outputs.should_release == 'true' }}
+        shell: pwsh
+        run: |
+          $bin = "build/Release"
+          $name = "IndustrialRuntime-${{ steps.ver.outputs.tag }}-windows-x64"
+          $root = "dist/$name"
+
+          # MySQL 风格分层布局：bin / include / config / plugins。
+          New-Item -ItemType Directory -Force -Path "$root/bin","$root/include","$root/config","$root/plugins" | Out-Null
+
+          # bin：运行时 exe + vcpkg 自动部署到 exe 旁边的依赖 DLL（不含测试二进制）。
+          Copy-Item "$bin/IndustrialRuntime.exe" "$root/bin"
+          Get-ChildItem "$bin/*.dll" -ErrorAction SilentlyContinue | Copy-Item -Destination "$root/bin"
+
+          # include：插件开发 SDK 的 C ABI 头（供下游开发者集成）。
+          Copy-Item "sdk/plugin-sdk/example/irplugin" "$root/include/irplugin" -Recurse
+
+          # config / plugins：暂无样例，放占位说明保证目录进包。
+          Set-Content "$root/config/README.txt"  "将运行时配置放在此目录。" -Encoding utf8
+          Set-Content "$root/plugins/README.txt" "将编译好的插件动态库(.dll)放在此目录，运行时会自动扫描。" -Encoding utf8
+
+          $zip = "$name.zip"
+          Compress-Archive -Path $root -DestinationPath $zip -Force
+          "asset=$zip" >> $env:GITHUB_OUTPUT
+
+      - name: 创建 tag 并发布 Release
+        if: ${{ steps.ver.outputs.should_release == 'true' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          prerelease: ${{ steps.ver.outputs.prerelease }}
+          generate_release_notes: true
+          files: ${{ steps.package.outputs.asset }}
