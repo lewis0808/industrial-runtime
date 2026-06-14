@@ -38,6 +38,10 @@ int main() {
     IR_CHECK(startsWith(admin::handleAdminCommand(pm, "PLUGIN UNLOAD nope"), "ERR"));
     IR_CHECK(startsWith(admin::handleAdminCommand(pm, "PLUGIN RELOAD nope"), "ERR"));
 
+    // SCAN：未设插件目录（未 loadDirectory）-> 新加载 0 个。
+    IR_CHECK(admin::handleAdminCommand(pm, "PLUGIN SCAN") == "OK 0\n");
+    IR_CHECK(startsWith(admin::handleAdminCommand(pm, "PLUGIN SCAN extra"), "ERR"));
+
     // 空命令 / 未知命令 / 缺参 / 未知子命令 -> ERR。
     IR_CHECK(startsWith(admin::handleAdminCommand(pm, ""), "ERR"));
     IR_CHECK(startsWith(admin::handleAdminCommand(pm, "FOO"), "ERR"));

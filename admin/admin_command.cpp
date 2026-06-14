@@ -74,6 +74,12 @@ std::string handleAdminCommand(core::PluginManager &pm, std::string_view line) {
         }
         return pm.reload(t[2]) ? "OK\n" : "ERR reload failed or not found\n";
     }
+    if (sub == "SCAN") {
+        if (t.size() != 2) {
+            return "ERR usage: PLUGIN SCAN\n";
+        }
+        return "OK " + std::to_string(pm.scan()) + "\n"; // 新加载数量
+    }
     return "ERR unknown PLUGIN subcommand\n";
 }
 

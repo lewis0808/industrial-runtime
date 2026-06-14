@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "admin_command.hpp"
+#include "admin_endpoint.hpp"
 #include "logger/logger.hpp"
 #include "plugin_manager/plugin_manager.hpp"
 
@@ -21,12 +22,6 @@ namespace admin {
 
 namespace {
 
-#if defined(_WIN32)
-constexpr const char *kDefaultEndpoint = "\\\\.\\pipe\\industrial-runtime-admin";
-#else
-constexpr const char *kDefaultEndpoint = "/tmp/industrial-runtime-admin.sock";
-#endif
-
 /// 取请求中的首行（去掉换行及之后内容）。
 std::string firstLine(const std::string &req) { return req.substr(0, req.find('\n')); }
 
@@ -35,7 +30,7 @@ constexpr std::size_t kMaxRequest = 64 * 1024; // 命令短，防御性上限
 } // namespace
 
 AdminServer::AdminServer(core::PluginManager &manager, std::string endpoint)
-    : manager_(&manager), endpoint_(endpoint.empty() ? kDefaultEndpoint : std::move(endpoint)) {}
+    : manager_(&manager), endpoint_(endpoint.empty() ? defaultEndpoint() : std::move(endpoint)) {}
 
 AdminServer::~AdminServer() { stop(); }
 

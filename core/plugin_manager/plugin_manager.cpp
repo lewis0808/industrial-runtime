@@ -154,6 +154,31 @@ bool PluginManager::loadLocked(const std::string &path, const std::string &confi
 
 std::size_t PluginManager::loadDirectory(const std::string &pluginDir,
                                          const std::string &configDir) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    pluginDir_ = pluginDir; // 记下目录供 scan 复用
+    configDir_ = configDir;
+    return discoverLocked(false); // 启动期只加载，由调用方随后 startAll
+}
+
+std::size_t PluginManager::scan() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (pluginDir_.empty()) {
+        IR_LOG_WARN("scan：尚未设置插件目录（未调用 loadDirectory）");
+        return 0;
+    }
+    return discoverLocked(true); // 运行期发现：新插件随即 start
+}
+
+bool PluginManager::isLoadedPathLocked(const std::string &path) const {
+    for (const auto &p : plugins_) {
+        if (p.path == path) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::size_t PluginManager::discoverLocked(bool startNew) {
     namespace fs = std::filesystem;
 #if defined(_WIN32)
     const char *ext = ".dll";
@@ -163,19 +188,25 @@ std::size_t PluginManager::loadDirectory(const std::string &pluginDir,
     const char *ext = ".so";
 #endif
     std::error_code ec;
-    if (!fs::is_directory(pluginDir, ec)) {
-        IR_LOG_INFO("插件目录不存在，跳过自动发现: {}", pluginDir);
+    if (!fs::is_directory(pluginDir_, ec)) {
+        IR_LOG_INFO("插件目录不存在，跳过自动发现: {}", pluginDir_);
         return 0;
     }
-    std::lock_guard<std::mutex> lock(mutex_);
     std::size_t loaded = 0;
-    for (const auto &entry : fs::directory_iterator(pluginDir, ec)) {
+    for (const auto &entry : fs::directory_iterator(pluginDir_, ec)) {
         if (!entry.is_regular_file() || entry.path().extension() != ext) {
             continue;
         }
+        const auto path = entry.path().string();
+        if (isLoadedPathLocked(path)) {
+            continue; // 已加载，按路径去重跳过
+        }
         // 配置文件路径：configDir/<dll basename>.json（与 plugins 目录分离）。
-        const auto configPath = (fs::path(configDir) / entry.path().stem()).string() + ".json";
-        if (loadLocked(entry.path().string(), configPath)) {
+        const auto configPath = (fs::path(configDir_) / entry.path().stem()).string() + ".json";
+        if (loadLocked(path, configPath)) {
+            if (startNew) {
+                startLocked(plugins_.back());
+            }
             ++loaded;
         }
     }

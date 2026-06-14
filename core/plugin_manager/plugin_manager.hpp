@@ -58,6 +58,11 @@ class PluginManager {
     /// 找不到该 id 或重新加载失败返回 false（失败时该插件已被卸载，不会残留旧实例）。
     bool reload(const std::string &id);
 
+    /// 重新扫描插件目录（loadDirectory 时记下的），加载并 start **尚未加载**的插件
+    /// （按路径去重，已加载的跳过）。运行期把启动时的自动发现再跑一遍，用于把新放入或
+    /// 卸载后想装回的插件接入。返回本次新加载的数量。未先 loadDirectory 则返回 0。
+    std::size_t scan();
+
     /// 已加载插件数量。
     [[nodiscard]] std::size_t count() const;
 
@@ -80,10 +85,15 @@ class PluginManager {
     void unloadLocked(std::size_t index) noexcept;
     bool startLocked(Loaded &p);
     [[nodiscard]] std::size_t findIndexLocked(const std::string &id) const;
+    [[nodiscard]] bool isLoadedPathLocked(const std::string &path) const;
+    /// 扫描 pluginDir_ 下动态库，加载未加载者（按路径去重）；startNew 时一并 start。返回新加载数。
+    std::size_t discoverLocked(bool startNew);
 
     PluginHost *host_;
     mutable std::mutex mutex_;
     std::vector<Loaded> plugins_;
+    std::string pluginDir_; ///< loadDirectory 记下的插件目录（供 scan 复用）
+    std::string configDir_; ///< loadDirectory 记下的配置目录
 };
 
 } // namespace core

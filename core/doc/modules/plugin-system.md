@@ -97,9 +97,11 @@ removeOwner → 卸库 → 从表移除`。`reload` = 记下原 `path/config/sta
 以同参 `load` → 原先 `started` 则重新 `start`（重载失败时旧实例已卸载，不残留）。
 
 控制面入口：**独立的本机 admin 通道**（Windows 命名管道 / POSIX AF_UNIX）上的
-`PLUGIN LIST/UNLOAD/RELOAD`，**与 IRSP 数据面解耦**（控制类有副作用操作不污染数据总线，
-README §7 原则）。协议见 [admin/README.md](../../../admin/README.md)，实现见 `admin/` 模块
-（命令处理纯函数 `handleAdminCommand` + 命名管道/AF_UNIX 传输）。单测 `test_plugin_host`
+`PLUGIN LIST/UNLOAD/RELOAD/SCAN`（`SCAN` = 运行期重跑插件目录自动发现，加载未加载者），
+**与 IRSP 数据面解耦**（控制类有副作用操作不污染数据总线，README §7 原则）。随运行时编出
+`irpcli` CLI 直接用：`irpcli plugin list/reload/unload/scan`。
+协议与用法见 [admin/README.md](../../../admin/README.md)，实现见 `admin/` 模块（命令处理纯函数
+`handleAdminCommand` + 命名管道/AF_UNIX 传输 + `irpcli` 客户端）。单测 `test_plugin_host`
 覆盖 owner 撤销与并发排空，`test_admin_command` 覆盖控制命令；DLL 级集成由独立插件工程覆盖。
 
 ## 待改善
