@@ -8,9 +8,9 @@
 #include <chrono>
 #include <csignal>
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <thread>
-#include <vector>
 
 #include "config/config.hpp"
 #include "logger/logger.hpp"
@@ -28,6 +28,19 @@ namespace {
 std::atomic<bool> g_running{true};
 
 void handleSignal(int) { g_running.store(false, std::memory_order_relaxed); }
+
+/// 返回当前可执行文件所在目录。用于定位同级 plugins/ 插件目录。
+std::filesystem::path exeDir() {
+#if defined(_WIN32)
+    wchar_t buf[MAX_PATH];
+    const DWORD n = ::GetModuleFileNameW(nullptr, buf, MAX_PATH);
+    return std::filesystem::path(std::wstring(buf, n)).parent_path();
+#else
+    std::error_code ec;
+    const auto self = std::filesystem::read_symlink("/proc/self/exe", ec);
+    return ec ? std::filesystem::current_path() : self.parent_path();
+#endif
+}
 
 } // namespace
 
@@ -62,9 +75,13 @@ int main(int argc, char **argv) {
     core::PluginHost pluginHost(runtime);
     runtime.setWriteHandler([&pluginHost](const core::TagValue &t) { return pluginHost.write(t); });
     core::PluginManager pluginManager(pluginHost.abi());
-    for (const auto &path : config.get<std::vector<std::string>>("plugins", {})) {
-        pluginManager.load(path);
-    }
+    // 自动发现：扫描可执行文件同级的 plugins/ 加载所有插件动态库；各插件的配置取自
+    // 同级 config/<dll basename>.json（plugins 与 config 分目录）。设备配置不进主配置，
+    // 宿主只把配置路径透传给插件，由插件自行解析（缺失则用内置默认）。
+    const auto pluginDir = (exeDir() / "plugins").string();
+    const auto configDir = (exeDir() / "config").string();
+    const auto loaded = pluginManager.loadDirectory(pluginDir, configDir);
+    IR_LOG_INFO("插件目录 {}，配置目录 {}，已加载 {} 个插件", pluginDir, configDir, loaded);
     pluginManager.startAll();
 
     // 启动对外 IRP WebSocket 服务（端口可经配置 irp.port 覆盖，默认 9777）。
