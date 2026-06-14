@@ -30,9 +30,9 @@
 ```markdown
 industrial-runtime/
 ├── core/                # runtime kernel
-├── irp/                 # IRP protocol (tag system)
+├── irsp/                 # IRSP protocol (tag system)
 ├── sdk/
-│   ├── irp-client/      # 开发语言 SDK（Python/Java/JS）
+│   ├── irsp-client/      # 开发语言 SDK（Python/Java/JS）
 │   ├── plugin-sdk/      # 插件开发 SDK（设备侧）
 │
 ├── plugins/             # 动态加载插件
@@ -255,6 +255,22 @@ DEFAULT_BUFFER_SIZE
 ```
 UPPER_CASE
 
+### Tag 命名 / Topic：
+
+```markdown
+Tag Name == Topic
+Topic Separator == /
+```
+
+- Tag 名即 IRSP Topic，统一使用 `/` 分层，例如：
+```markdown
+example/temperature
+factory1/line1/robot1/temp
+```
+- 禁止使用 `.` 作为层级分隔（`.` 仅用于 config 配置路径，与 Tag 无关）。
+- 禁止做 `.` ↔ `/` 转换层（永久技术债）。
+- 订阅通配采用 MQTT 风格：`+`（单层）、`#`（多层，末段）。
+
 ---
 ## AI 生成代码规则
 
@@ -264,7 +280,6 @@ UPPER_CASE
 - 优先组合而非继承。
 - 模块之间保持低耦合。
 - Core 不得依赖具体设备。
-- 避免增加新依赖。
 - 保持 ABI 稳定。
 - 生成生产级代码。
 - 必须考虑线程安全。
@@ -277,7 +292,7 @@ UPPER_CASE
 ```markdown
 Core 不依赖设备
 设备全部插件化
-应用全部通过 IRP 接入
+应用全部通过 IRSP 接入
 Runtime 是唯一数据中心
 Tag 与 Stream 是两套独立体系
 ```

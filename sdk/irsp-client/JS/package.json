@@ -1,0 +1,22 @@
+{
+  "name": "@industrial-runtime/irsp-client",
+  "version": "1.0.0",
+  "description": "IRSP (Industrial Runtime Serialization Protocol) WebSocket client SDK for browser and Node.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "demo": "node examples/demo.mjs",
+    "serve": "node examples/serve.mjs",
+    "test": "node --test"
+  },
+  "license": "MIT"
+}
