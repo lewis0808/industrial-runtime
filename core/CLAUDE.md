@@ -76,14 +76,19 @@ core/
 
 ### plugin_host/
 `PluginHost(RuntimeApi&)` —— 把 `RuntimeApi` 包装为插件可用的 C-ABI `IrPluginHostApi`
-（见 `sdk/plugin-sdk`）。`abi()` 返回的指针经静态 thunk 把 `IrPluginTagValue/
+（定义见 core 自带的 `irplugin/plugin_abi.h`）。`abi()` 返回的指针经静态 thunk 把 `IrPluginTagValue/
 IrPluginEvent/IrPluginStreamFrame`（纯 C 结构）转换为 core 类型后转发。这是宿主侧的封送层。
 
 ### plugin_manager/
-`PluginManager(const IrPluginHostApi*)` —— 跨平台加载插件 DLL（Windows `LoadLibrary` /
-POSIX `dlopen`）。`load()` 解析 `getPluginInfo`/`createPlugin`、校验 ABI 版本、
-`createPlugin(host)` 并 `init()`；`startAll()`/`stopAll()`；析构时按逆序
-`stop -> destroy -> 卸载库`。`destroy()` 在插件自身堆释放对象。
+`PluginManager(const IrPluginHostApi*)` —— 跨平台加载插件 DLL（Windows `LoadLibraryEx` +
+`LOAD_WITH_ALTERED_SEARCH_PATH` 以解析插件同目录的依赖库 / POSIX `dlopen`）。
+`load(path, configPath)` 解析 `getPluginInfo`/`createPlugin`、校验 ABI 版本、
+`createPlugin(host, configPath)` 并 `init()`——**配置文件路径原样传给插件**，宿主不读取内容
+（设备配置不进主配置）。`loadDirectory(pluginDir, configDir)` 扫描目录下所有动态库
+（`*.dll`/`*.so`/`*.dylib`）逐个加载，配置路径取 `configDir/<dll basename>.json`，供 runtime
+**自动发现**：`main` 扫描可执行文件同级的 `plugins/`（插件）与 `config/`（配置），两目录分离，
+无需在主配置里列插件。非插件动态库（无导出符号）静默跳过。`startAll()`/`stopAll()`；
+析构时按逆序 `stop -> destroy -> 卸载库`。`destroy()` 在插件自身堆释放对象。
 
 ## 数据流
 
@@ -106,10 +111,12 @@ core_common (INTERFACE, 提供 include 根)
   ├── core_memory_store  -> Threads
   ├── core_scheduler     -> Threads
   ├── core_runtime_engine -> 以上全部
-  ├── core_plugin_host    -> core_runtime_engine + plugin_sdk
-  └── core_plugin_manager -> plugin_sdk + core_logger (+ dl on POSIX)
+  ├── core_plugin_host    -> core_runtime_engine
+  └── core_plugin_manager -> core_logger (+ dl on POSIX)
 IndustrialRuntime (exe) -> core_runtime_engine
-plugin_sdk (INTERFACE, 来自 sdk/plugin-sdk) —— 宿主与插件共享的 ABI 契约
+irplugin/ (core 自带 ABI 头副本) —— 宿主与插件共享的 C-ABI 契约，经 core_common 的
+          include 根以 #include "irplugin/..." 引用。源出 sdk/plugin-sdk（对外交付的纯头
+          SDK，不进主构建）；core 作为宿主自带一份，升级 SDK 时同步本副本。
 ```
 
 各模块为独立 STATIC 库，依赖边集中在 `core/CMakeLists.txt`。新增模块时保持低耦合，

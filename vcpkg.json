@@ -5,7 +5,6 @@
   "dependencies": [
     "spdlog",
     "nlohmann-json",
-    "libwebsockets",
-    "snap7"
+    "libwebsockets"
   ]
 }
