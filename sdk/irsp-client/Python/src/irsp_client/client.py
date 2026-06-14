@@ -1,6 +1,6 @@
 """IRSP WebSocket 客户端（asyncio，纯 Python，依赖 websockets）。
 
-语义：请求-回复在连接上按 FIFO 顺序对应（IRSP 风格，无请求 id）；
+语义：请求-回复在连接上按 FIFO 顺序对应（RESP 风格，无请求 id）；
 服务端主动推送的帧带 ``push`` 字段（"tag" / "event"），据此与回复区分。
 """
 from __future__ import annotations

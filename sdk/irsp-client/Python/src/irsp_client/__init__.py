@@ -1,4 +1,4 @@
-"""IRSP (Industrial Runtime Protocol) 客户端 SDK（纯 Python，asyncio）。
+"""IRSP (Industrial Runtime Serialization Protocol) 客户端 SDK（纯 Python，asyncio）。
 
 惰性加载：`irsp1`（编解码）零依赖，可单独使用；只有访问 `IrspClient` 等时
 才会导入 `client` 模块（依赖 websockets）。

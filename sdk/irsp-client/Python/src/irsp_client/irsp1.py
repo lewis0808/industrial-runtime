@@ -1,6 +1,6 @@
 """irsp1 编解码（IRSP V1 编码层的纯 Python 实现）。
 
-一个 WebSocket 二进制消息 = 一个 IRSP 帧（一个顶层 IrspValue）。详见 irsp/encoding/irsp1.md。
+一个 WebSocket 二进制消息 = 一个 IRSP 帧（一个顶层 IrspValue）。详见 irsp/doc/encoding/irsp1.md。
 """
 from __future__ import annotations
 

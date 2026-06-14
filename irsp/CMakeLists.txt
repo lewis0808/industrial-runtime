@@ -1,5 +1,5 @@
 # ============================================================
-# IRSP — Industrial Runtime Protocol（对外访问协议）
+# IRSP — Industrial Runtime Serialization Protocol（对外访问协议）
 # 增量 1：协议核心（编解码 / 语义），不依赖网络库，可离线单测。
 # 规格见本目录文档（README.md 等）。IRSP 单向依赖 core 只读接口；core 不依赖 irsp。
 # ============================================================

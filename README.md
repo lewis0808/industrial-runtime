@@ -9,7 +9,7 @@
 ```
 
 - **Core 不依赖设备**，设备全部插件化（C-ABI 边界）。
-- **应用全部通过 IRSP 接入**（Industrial Runtime Protocol，对外访问协议）。
+- **应用全部通过 IRSP 接入**（Industrial Runtime Serialization Protocol，对外访问协议）。
 - **Tag 与 Stream 是两套独立体系**；Tag 走数据总线，Stream 走高带宽通道。
 
 详细规范见 [`CLAUDE.md`](CLAUDE.md) 与各模块下的 `CLAUDE.md` / 文档。

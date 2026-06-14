@@ -8,7 +8,7 @@
 
 namespace irsp {
 
-/// irsp1 编解码：IrspValue <-> 字节。详见 irsp/encoding/irsp1.md。
+/// irsp1 编解码：IrspValue <-> 字节。详见 irsp/doc/encoding/irsp1.md。
 class Irsp1Codec {
   public:
     enum class Status {

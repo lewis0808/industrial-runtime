@@ -1,23 +1,23 @@
-# IRSP — Industrial Runtime Protocol
+# IRSP — Industrial Runtime Serialization Protocol
 
-IRSP 是 Industrial Runtime 的**对外统一访问协议**（定位类比 Redis IRSP，但面向工业数据）。
+IRSP 是 Industrial Runtime 的**对外统一访问协议**（定位类比 Redis RESP，但面向工业数据）。
 应用 / 多语言客户端（`sdk/irsp-client/`）通过它从 Runtime **读取 Tag、订阅 Tag 变化、
 订阅事件**（未来含 Stream）。它是数据的「出口」，与设备侧 **Plugin ABI**（数据「入口」）正交。
 
-> 状态：**V1 规格已定稿，进入实现阶段**。本目录只定义协议，不含实现。
+> 状态：**V1 规格已定稿，进入实现阶段**。规格文档在 `doc/`，实现见 `codec/`（编解码）、`semantic/`（命令语义）、`server/`（WebSocket 服务）。
 
 ## 文档地图
 
 | 文件 | 内容 |
 |------|------|
-| [protocol/datatype.md](protocol/datatype.md) | 数据模型：类型标签、可扩展 TagValue/Event 结构、Topic Tree、命名约定 |
-| [protocol/command.md](protocol/command.md) | 命令集（语义层，跨版本恒定） |
-| [protocol/error.md](protocol/error.md) | 错误码表 |
-| [transport/websocket.md](transport/websocket.md) | V1 传输：WebSocket |
-| [transport/tcp.md](transport/tcp.md) | V3 传输：TCP/TLV（预留） |
-| [encoding/irsp1.md](encoding/irsp1.md) | V1 编码：IRSP 风格 + 二进制 bulk |
-| [encoding/msgpack.md](encoding/msgpack.md) | V2 编码：MessagePack（预留） |
-| [examples/session.md](examples/session.md) | 完整会话示例 |
+| [doc/protocol/datatype.md](doc/protocol/datatype.md) | 数据模型：类型标签、可扩展 TagValue/Event 结构、Topic Tree、命名约定 |
+| [doc/protocol/command.md](doc/protocol/command.md) | 命令集（语义层，跨版本恒定） |
+| [doc/protocol/error.md](doc/protocol/error.md) | 错误码表 |
+| [doc/transport/websocket.md](doc/transport/websocket.md) | V1 传输：WebSocket |
+| [doc/transport/tcp.md](doc/transport/tcp.md) | V3 传输：TCP/TLV（预留） |
+| [doc/encoding/irsp1.md](doc/encoding/irsp1.md) | V1 编码：RESP 风格 + 二进制 bulk |
+| [doc/encoding/msgpack.md](doc/encoding/msgpack.md) | V2 编码：MessagePack（预留） |
+| [doc/examples/session.md](doc/examples/session.md) | 完整会话示例 |
 
 ## 分层与版本演进
 
@@ -35,7 +35,7 @@ IRSP 是 Industrial Runtime 的**对外统一访问协议**（定位类比 Redis
 
 | 版本 | 传输 | 编码 | 语义 |
 |------|------|------|------|
-| **V1** | WebSocket | IRSP 风格 + length-prefixed 二进制 | 基线命令集 |
+| **V1** | WebSocket | RESP 风格 + length-prefixed 二进制 | 基线命令集 |
 | **V2** | WebSocket | 帧不变，值编码升级 MessagePack | **不变** |
 | **V3** | 新增 TCP/TLV | 高性能二进制 | **不变** |
 

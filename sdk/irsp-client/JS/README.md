@@ -1,6 +1,6 @@
 # @industrial-runtime/irsp-client (JavaScript)
 
-IRSP（Industrial Runtime Protocol）的 JavaScript 客户端 SDK，用于浏览器与 Node（≥22）。
+IRSP（Industrial Runtime Serialization Protocol）的 JavaScript 客户端 SDK，用于浏览器与 Node（≥22）。
 **零运行时依赖**：使用平台原生 `WebSocket`。协议规格见仓库 `irsp/`。
 
 位置：`sdk/irsp-client/JS/`。
@@ -86,12 +86,12 @@ TagValue  = { name: string, type: string, ts: bigint, value: any, quality?: stri
 IrspEvent  = { source: string, category: string, severity: string, ts: bigint, message: string }
 ```
 
-- `type` 为类型标签：`bool/i8../u64/f32/f64/str/null`（见 `irsp/protocol/datatype.md`）。
+- `type` 为类型标签：`bool/i8../u64/f32/f64/str/null`（见 `irsp/doc/protocol/datatype.md`）。
 - `value` 已按 `type` 解码；`i64/u64` 与 `ts`（纳秒）为 `bigint`，避免精度丢失。
 
 ## 设计要点
 
-- 请求/回复在连接上按 **FIFO 顺序**对应（IRSP 风格，无请求 id）；服务端主动推送的帧带
+- 请求/回复在连接上按 **FIFO 顺序**对应（RESP 风格，无请求 id）；服务端主动推送的帧带
   `push` 字段（`tag`/`event`），SDK 据此与回复区分。
 - 编码 irsp1（`src/irsp1.js`），数值以小端二进制 bulk 承载。
 - 仅 V1：`SET`/Stream 未提供（协议预留）。

@@ -9,7 +9,7 @@
 namespace irsp {
 
 // irsp1 编码的内存表示。一个 IRSP 帧对应一个顶层 IrspValue。
-// 编解码细节见 irsp/encoding/irsp1.md。
+// 编解码细节见 irsp/doc/encoding/irsp1.md。
 
 struct IrspNull {};
 
@@ -18,7 +18,7 @@ struct IrspSimple {
 };
 
 struct IrspError {
-    std::string code;    ///< 大写错误码（见 protocol/error.md）
+    std::string code;    ///< 大写错误码（见 doc/protocol/error.md）
     std::string message; ///< 人类可读补充
 };
 

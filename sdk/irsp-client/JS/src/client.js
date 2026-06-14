@@ -1,6 +1,6 @@
 // IRSP WebSocket 客户端（浏览器 / Node 22+，零运行时依赖，使用全局 WebSocket）。
 //
-// 语义：请求-回复在连接上按 FIFO 顺序对应（IRSP 风格，无请求 id）；
+// 语义：请求-回复在连接上按 FIFO 顺序对应（RESP 风格，无请求 id）；
 // 服务端主动推送的帧带 `push` 字段（"tag" / "event"），据此与回复区分。
 
 import { encodeRequest, decode, decodeValue, asStr, IrspError } from './irsp1.js';

@@ -1,6 +1,6 @@
-# 编码 V1 — irsp1（IRSP 风格 + length-prefixed 二进制）
+# 编码 V1 — irsp1（RESP 风格 + length-prefixed 二进制）
 
-`irsp1` 是 V1 默认编码（`HELLO ... encoding=irsp1`）。借 IRSP「首字节定类型 + CRLF 分隔」，
+`irsp1` 是 V1 默认编码（`HELLO ... encoding=irsp1`）。借 RESP「首字节定类型 + CRLF 分隔」，
 并以二进制安全 bulk 承载数值/二进制值。
 
 ## 类型

@@ -5,7 +5,7 @@
  * 插件 ABI 契约（纯 C）。
  *
  * 这是 Runtime（宿主）与设备插件 DLL 之间唯一的二进制边界，面向设备接入。
- * 与对外访问协议 IRP（Industrial Runtime Protocol）是两个正交的层，互不共用。
+ * 与对外访问协议 IRSP（Industrial Runtime Serialization Protocol）是两个正交的层，互不共用。
  *
  * 设计目标：ABI 稳定，不跨 DLL 传递任何 STL 对象 / 异常 / C++ 类。
  * 所有字符串以 (data, len) 传递，宿主在回调内同步拷贝，调用返回后指针即可失效。

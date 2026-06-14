@@ -1,6 +1,6 @@
 // irsp1 编解码（IRSP V1 编码层的 JS 实现）。
 // 一个 WebSocket 二进制消息 = 一个 IRSP 帧（一个顶层 IrspValue）。
-// 详见 irsp/encoding/irsp1.md。
+// 详见 irsp/doc/encoding/irsp1.md。
 
 /** IRSP 错误回复（irsp1 的 `-CODE message`）。 */
 export class IrspError extends Error {
