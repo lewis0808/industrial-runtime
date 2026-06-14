@@ -36,11 +36,12 @@ class PluginHost {
         IrPluginWriteFn handler;
     };
 
-    static int pushTagThunk(void *ctx, const IrPluginTagValue *tag);
-    static int pushEventThunk(void *ctx, const IrPluginEvent *event);
-    static int pushStreamThunk(void *ctx, const IrPluginStreamFrame *frame);
+    // thunk 是经 C-ABI 函数指针被插件回调的入口。C++ 异常逃逸回插件即 UB，故全部 noexcept。
+    static int pushTagThunk(void *ctx, const IrPluginTagValue *tag) noexcept;
+    static int pushEventThunk(void *ctx, const IrPluginEvent *event) noexcept;
+    static int pushStreamThunk(void *ctx, const IrPluginStreamFrame *frame) noexcept;
     static void registerWriterThunk(void *ctx, const char *prefix, void *pluginCtx,
-                                    IrPluginWriteFn handler);
+                                    IrPluginWriteFn handler) noexcept;
 
     RuntimeApi *api_;
     IrPluginHostApi abi_{};

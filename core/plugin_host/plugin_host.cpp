@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <exception>
 #include <string>
 #include <utility>
 #include <variant>
@@ -10,6 +11,7 @@
 #include "common/event.hpp"
 #include "common/stream.hpp"
 #include "common/tag_value.hpp"
+#include "logger/logger.hpp"
 
 namespace core {
 
@@ -151,50 +153,68 @@ PluginHost::PluginHost(RuntimeApi &api) noexcept : api_(&api) {
     abi_.register_writer = &PluginHost::registerWriterThunk;
 }
 
-int PluginHost::pushTagThunk(void *ctx, const IrPluginTagValue *tag) {
+int PluginHost::pushTagThunk(void *ctx, const IrPluginTagValue *tag) noexcept {
     if (ctx == nullptr || tag == nullptr) {
         return 0;
     }
     auto *self = static_cast<PluginHost *>(ctx);
-    TagValue tv;
-    tv.name = toString(tag->name);
-    tv.value = toVariant(tag->value);
-    tv.type = dataTypeOf(tv.value);
-    tv.timestamp = toTimestamp(tag->timestamp_ns);
-    return self->api_->pushTag(tv) ? 1 : 0;
+    try {
+        TagValue tv;
+        tv.name = toString(tag->name);
+        tv.value = toVariant(tag->value);
+        tv.type = dataTypeOf(tv.value);
+        tv.timestamp = toTimestamp(tag->timestamp_ns);
+        return self->api_->pushTag(tv) ? 1 : 0;
+    } catch (...) {
+        // 宿主侧异常不得逃逸回插件（跨 C-ABI 即 UB），按丢弃处理。
+        return 0;
+    }
 }
 
-int PluginHost::pushEventThunk(void *ctx, const IrPluginEvent *event) {
+int PluginHost::pushEventThunk(void *ctx, const IrPluginEvent *event) noexcept {
     if (ctx == nullptr || event == nullptr) {
         return 0;
     }
     auto *self = static_cast<PluginHost *>(ctx);
-    Event ev{toString(event->source), toString(event->category), toString(event->message),
-             toSeverity(event->severity), toTimestamp(event->timestamp_ns)};
-    return self->api_->pushEvent(ev) ? 1 : 0;
+    try {
+        Event ev{toString(event->source), toString(event->category), toString(event->message),
+                 toSeverity(event->severity), toTimestamp(event->timestamp_ns)};
+        return self->api_->pushEvent(ev) ? 1 : 0;
+    } catch (...) {
+        return 0;
+    }
 }
 
-int PluginHost::pushStreamThunk(void *ctx, const IrPluginStreamFrame *frame) {
+int PluginHost::pushStreamThunk(void *ctx, const IrPluginStreamFrame *frame) noexcept {
     if (ctx == nullptr || frame == nullptr) {
         return 0;
     }
     auto *self = static_cast<PluginHost *>(ctx);
-    std::vector<std::uint8_t> payload;
-    if (frame->payload != nullptr && frame->payload_len > 0) {
-        payload.assign(frame->payload, frame->payload + frame->payload_len);
+    try {
+        std::vector<std::uint8_t> payload;
+        if (frame->payload != nullptr && frame->payload_len > 0) {
+            payload.assign(frame->payload, frame->payload + frame->payload_len);
+        }
+        StreamFrame sf{toString(frame->source), toStreamType(frame->type), std::move(payload),
+                       toTimestamp(frame->timestamp_ns)};
+        return self->api_->pushStream(sf) ? 1 : 0;
+    } catch (...) {
+        return 0;
     }
-    StreamFrame sf{toString(frame->source), toStreamType(frame->type), std::move(payload),
-                   toTimestamp(frame->timestamp_ns)};
-    return self->api_->pushStream(sf) ? 1 : 0;
 }
 
 void PluginHost::registerWriterThunk(void *ctx, const char *prefix, void *pluginCtx,
-                                     IrPluginWriteFn handler) {
+                                     IrPluginWriteFn handler) noexcept {
     if (ctx == nullptr || prefix == nullptr || handler == nullptr) {
         return;
     }
     auto *self = static_cast<PluginHost *>(ctx);
-    self->writers_.push_back(WriteReg{std::string(prefix), pluginCtx, handler});
+    try {
+        self->writers_.push_back(WriteReg{std::string(prefix), pluginCtx, handler});
+    } catch (...) {
+        // 注册期内存不足等：放弃该注册，不让异常逃逸回插件。
+        IR_LOG_ERROR("插件写回注册失败（前缀 {}）：宿主侧异常已拦截", prefix);
+    }
 }
 
 bool PluginHost::write(const TagValue &tag) {
@@ -202,12 +222,24 @@ bool PluginHost::write(const TagValue &tag) {
         // 按 topic 前缀归属：首个匹配前缀的插件负责。
         if (tag.name.size() >= reg.prefix.size() &&
             tag.name.compare(0, reg.prefix.size(), reg.prefix) == 0) {
+            if (reg.handler == nullptr) {
+                return false;
+            }
             IrPluginTagValue c{};
             c.name = {tag.name.data(), tag.name.size()};
             c.timestamp_ns = fromTimestamp(tag.timestamp);
             std::string strHolder;
             fromVariant(c.value, tag.value, strHolder);
-            return reg.handler != nullptr && reg.handler(reg.pluginCtx, &c) > 0;
+            // 写回处理器是插件代码，经 C-ABI 调用，异常逃逸即 UB，宿主侧拦截按未受理处理。
+            try {
+                return reg.handler(reg.pluginCtx, &c) > 0;
+            } catch (const std::exception &e) {
+                IR_LOG_ERROR("插件写回处理器抛出异常（前缀 {}）：{}", reg.prefix, e.what());
+                return false;
+            } catch (...) {
+                IR_LOG_ERROR("插件写回处理器抛出未知异常（前缀 {}）", reg.prefix);
+                return false;
+            }
         }
     }
     return false;

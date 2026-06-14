@@ -34,9 +34,11 @@
 `PluginHost(RuntimeApi&)` 把 `RuntimeApi` 包装成 C-ABI `IrPluginHostApi`：
 
 - 静态 thunk（`pushTagThunk` 等）以 `this` 为 `ctx`，把 C 结构 → core 类型后转发给 `RuntimeApi`。
-  `timestamp_ns == 0` 由宿主填当前时间；字符串/payload 同步拷贝。
+  `timestamp_ns == 0` 由宿主填当前时间；字符串/payload 同步拷贝。thunk 全部 `noexcept` 且包
+  `try/catch`：宿主侧异常（如 `bad_alloc`）不得逃逸回插件（跨 C-ABI 即 UB），按丢弃（返回 0）处理。
 - **写回路由** `write(TagValue)`：遍历 `writers_`，按 **topic 前缀**线性匹配，**首个**匹配的插件负责，
-  封送回 C 结构调插件的 `IrPluginWriteFn`。
+  封送回 C 结构调插件的 `IrPluginWriteFn`。该调用进入插件代码，故包 `try/catch`，插件抛异常按未受理
+  （返回 false）处理。
 
 ## 4. 生命周期管理（plugin_manager/）
 
@@ -46,6 +48,9 @@
 - `load(path, configPath)`：打开库 → 解析 `getPluginInfo/createPlugin` → 校验 ABI 版本 →
   `createPlugin(host, configPath)` → `init()`。任一步失败即清理并返回 false。
   **无导出符号的动态库（插件依赖库）静默跳过**——支持自动发现目录里混放依赖。
+  对插件代码的每次调用（`getPluginInfo/createPlugin/init/start/stop/destroy`）均经 `guardedCall`
+  包 `try/catch`：插件抛异常跨 DLL 即 UB，宿主统一拦截、记日志并按失败处理；`unloadAll` 为
+  `noexcept`，其中的 `stop/destroy` 若漏拦异常会直接 `std::terminate`，故同样兜底。
 - `loadDirectory(pluginDir, configDir)`：扫 `*.dll/.so/.dylib` 逐个 load，配置路径取
   `configDir/<basename>.json`。
 - `startAll()/stopAll()`；析构 `unloadAll()` 按**逆序** `stop → destroy → 关库`。
@@ -56,7 +61,7 @@
 | 项 | 说明 | 优先级/方向 |
 |----|------|-------------|
 | **生命周期仍是 C++ vtable** | `createPlugin` 返回 `IPlugin*`，`init/start/stop/destroy` 是跨 DLL 的**虚函数调用** → 要求宿主与插件**同一 C++ ABI（编译器/运行时）**。数据面虽是纯 C ABI，但生命周期这层尚未 C 化。 | **高（架构级）**：把生命周期改为 `IrPluginInfo` 内的 C 函数指针 vtable，才能真正「任意语言/编译器」写插件。 |
-| **跨边界异常无防护** | 插件 `createPlugin/init/start/stop` 若抛异常跨 DLL → UB。ABI 约定不跨异常，但宿主未设防。 | 宿主侧对插件调用包 `try/catch`（或要求 `noexcept` 边界），隔离崩溃。 |
+| ~~跨边界异常无防护~~（已解决） | 插件 `createPlugin/init/start/stop/destroy/write` 跨 DLL 抛异常 → UB。 | ✅ 宿主侧 `guardedCall`/thunk `noexcept` + `try/catch` 双向隔离；单测 `test_plugin_host` 覆盖写回与 push 边界。 |
 | **写回路由是线性首匹配** | `write` O(N) 扫前缀、首个匹配胜出，无最长前缀、无冲突检测。 | 两插件同前缀时静默以先注册者为准 → 需最长前缀匹配 + 冲突告警。 |
 | **writers_ 无同步** | 注册在插件 init（启动期单线程），但 `write` 跑在 IRSP 服务线程；若插件运行期动态注册则竞态。 | 若允许运行期注册，需加锁/写时复制。 |
 | **无热插拔/卸载** | 无按 id 卸载、reload、热替换；`writers_` 只增不减。 | 视运维需求补 unload/reload。 |

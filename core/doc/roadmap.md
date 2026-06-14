@@ -9,7 +9,7 @@
 |---|------|------|------|
 | 1 | [scheduler](modules/scheduler.md) | 任务回调抛异常逃逸调度线程 → `std::terminate`。 | `task()` 外包 `try/catch` 并记日志，单任务失败不拖垮线程。 |
 | 2 | [event-bus](modules/event-bus.md) | handler 抛异常逃逸派发线程 → 终止。 | `deliver` 内逐 handler `try/catch`。 |
-| 3 | [plugin-system](modules/plugin-system.md) | 插件 `createPlugin/init/start/stop` 跨 DLL 抛异常 → UB。 | 宿主侧调用包异常隔离（或强制 `noexcept` 边界）。 |
+| ~~3~~ | [plugin-system](modules/plugin-system.md) | ~~插件 `createPlugin/init/start/stop` 跨 DLL 抛异常 → UB。~~ | ✅ 已解决：宿主侧 `guardedCall` + thunk `noexcept` 双向异常隔离，单测 `test_plugin_host` 覆盖。 |
 | 4 | [data-model](data-model.md) | `DataType` 顺序与 `Variant` 备选顺序的对应是隐式契约，重排即静默错位。 | 加 `static_assert` 锁死每个枚举值↔`index()`。 |
 
 ## P1 — 设计债 / 可扩展性
@@ -45,3 +45,4 @@
 - ✅ 插件自动发现 + 配置分目录（`plugins/` 与 `config/` 分离）。
 - ✅ 数据面纯 C ABI（结构/字符串/枚举跨边界安全）。
 - ✅ 跨平台 DLL 加载、可中断后台线程、零外部框架单测。
+- ✅ 插件 C-ABI 边界异常隔离（宿主→插件调用 + 插件→宿主 thunk 双向 `try/catch`，单插件抛异常不拖垮运行时）。
