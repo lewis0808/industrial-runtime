@@ -1,17 +1,17 @@
-#include "codec/resp1_codec.hpp"
+#include "codec/irsp1_codec.hpp"
 
 #include <charconv>
 #include <variant>
 
-namespace irp {
+namespace irsp {
 
 namespace {
 
-using Status = Resp1Codec::Status;
+using Status = Irsp1Codec::Status;
 
 struct ParseState {
     Status status{Status::Error};
-    RespValue value{RespNull{}};
+    IrspValue value{IrspNull{}};
     std::size_t pos{0};
 };
 
@@ -37,19 +37,19 @@ bool parseInt(std::string_view s, std::int64_t &out) {
 
 ParseState parseValue(std::string_view b, std::size_t pos) {
     if (pos >= b.size()) {
-        return {Status::Incomplete, RespNull{}, pos};
+        return {Status::Incomplete, IrspNull{}, pos};
     }
     const char type = b[pos];
     const std::size_t lineEnd = findCrlf(b, pos + 1);
     if (lineEnd == std::string_view::npos) {
-        return {Status::Incomplete, RespNull{}, pos};
+        return {Status::Incomplete, IrspNull{}, pos};
     }
     const std::string_view line = b.substr(pos + 1, lineEnd - (pos + 1));
     const std::size_t afterLine = lineEnd + 2;
 
     switch (type) {
     case '+':
-        return {Status::Ok, RespSimple{std::string(line)}, afterLine};
+        return {Status::Ok, IrspSimple{std::string(line)}, afterLine};
 
     case '-': {
         const std::size_t sp = line.find(' ');
@@ -57,51 +57,51 @@ ParseState parseValue(std::string_view b, std::size_t pos) {
             sp == std::string_view::npos ? std::string(line) : std::string(line.substr(0, sp));
         std::string msg =
             sp == std::string_view::npos ? std::string{} : std::string(line.substr(sp + 1));
-        return {Status::Ok, RespError{std::move(code), std::move(msg)}, afterLine};
+        return {Status::Ok, IrspError{std::move(code), std::move(msg)}, afterLine};
     }
 
     case ':': {
         std::int64_t v = 0;
         if (!parseInt(line, v)) {
-            return {Status::Error, RespNull{}, pos};
+            return {Status::Error, IrspNull{}, pos};
         }
-        return {Status::Ok, RespInteger{v}, afterLine};
+        return {Status::Ok, IrspInteger{v}, afterLine};
     }
 
     case '$': {
         std::int64_t len = 0;
         if (!parseInt(line, len)) {
-            return {Status::Error, RespNull{}, pos};
+            return {Status::Error, IrspNull{}, pos};
         }
         if (len < 0) {
-            return {Status::Ok, RespNull{}, afterLine};
+            return {Status::Ok, IrspNull{}, afterLine};
         }
         const std::size_t ulen = static_cast<std::size_t>(len);
         const std::size_t need = afterLine + ulen + 2;
         if (b.size() < need) {
-            return {Status::Incomplete, RespNull{}, pos};
+            return {Status::Incomplete, IrspNull{}, pos};
         }
         if (b[afterLine + ulen] != '\r' || b[afterLine + ulen + 1] != '\n') {
-            return {Status::Error, RespNull{}, pos};
+            return {Status::Error, IrspNull{}, pos};
         }
-        return {Status::Ok, RespBulk{std::string(b.substr(afterLine, ulen))}, need};
+        return {Status::Ok, IrspBulk{std::string(b.substr(afterLine, ulen))}, need};
     }
 
     case '*': {
         std::int64_t count = 0;
         if (!parseInt(line, count)) {
-            return {Status::Error, RespNull{}, pos};
+            return {Status::Error, IrspNull{}, pos};
         }
         if (count < 0) {
-            return {Status::Ok, RespNull{}, afterLine}; // null array
+            return {Status::Ok, IrspNull{}, afterLine}; // null array
         }
-        RespArray arr;
+        IrspArray arr;
         arr.items.reserve(static_cast<std::size_t>(count));
         std::size_t cur = afterLine;
         for (std::int64_t i = 0; i < count; ++i) {
             ParseState st = parseValue(b, cur);
             if (st.status != Status::Ok) {
-                return {st.status, RespNull{}, pos};
+                return {st.status, IrspNull{}, pos};
             }
             arr.items.push_back(std::move(st.value));
             cur = st.pos;
@@ -112,20 +112,20 @@ ParseState parseValue(std::string_view b, std::size_t pos) {
     case '%': {
         std::int64_t pairs = 0;
         if (!parseInt(line, pairs) || pairs < 0) {
-            return {Status::Error, RespNull{}, pos};
+            return {Status::Error, IrspNull{}, pos};
         }
-        RespMap m;
+        IrspMap m;
         m.entries.reserve(static_cast<std::size_t>(pairs));
         std::size_t cur = afterLine;
         for (std::int64_t i = 0; i < pairs; ++i) {
             ParseState k = parseValue(b, cur);
             if (k.status != Status::Ok) {
-                return {k.status, RespNull{}, pos};
+                return {k.status, IrspNull{}, pos};
             }
             cur = k.pos;
             ParseState v = parseValue(b, cur);
             if (v.status != Status::Ok) {
-                return {v.status, RespNull{}, pos};
+                return {v.status, IrspNull{}, pos};
             }
             cur = v.pos;
             m.entries.emplace_back(std::move(k.value), std::move(v.value));
@@ -134,23 +134,23 @@ ParseState parseValue(std::string_view b, std::size_t pos) {
     }
 
     default:
-        return {Status::Error, RespNull{}, pos};
+        return {Status::Error, IrspNull{}, pos};
     }
 }
 
 } // namespace
 
-void Resp1Codec::encode(const RespValue &value, std::string &out) {
+void Irsp1Codec::encode(const IrspValue &value, std::string &out) {
     std::visit(
         [&out](const auto &v) {
             using T = std::decay_t<decltype(v)>;
-            if constexpr (std::is_same_v<T, RespNull>) {
+            if constexpr (std::is_same_v<T, IrspNull>) {
                 out += "$-1\r\n";
-            } else if constexpr (std::is_same_v<T, RespSimple>) {
+            } else if constexpr (std::is_same_v<T, IrspSimple>) {
                 out += '+';
                 out += v.text;
                 out += "\r\n";
-            } else if constexpr (std::is_same_v<T, RespError>) {
+            } else if constexpr (std::is_same_v<T, IrspError>) {
                 out += '-';
                 out += v.code;
                 if (!v.message.empty()) {
@@ -158,24 +158,24 @@ void Resp1Codec::encode(const RespValue &value, std::string &out) {
                     out += v.message;
                 }
                 out += "\r\n";
-            } else if constexpr (std::is_same_v<T, RespInteger>) {
+            } else if constexpr (std::is_same_v<T, IrspInteger>) {
                 out += ':';
                 out += std::to_string(v.value);
                 out += "\r\n";
-            } else if constexpr (std::is_same_v<T, RespBulk>) {
+            } else if constexpr (std::is_same_v<T, IrspBulk>) {
                 out += '$';
                 out += std::to_string(v.data.size());
                 out += "\r\n";
                 out += v.data;
                 out += "\r\n";
-            } else if constexpr (std::is_same_v<T, RespArray>) {
+            } else if constexpr (std::is_same_v<T, IrspArray>) {
                 out += '*';
                 out += std::to_string(v.items.size());
                 out += "\r\n";
                 for (const auto &item : v.items) {
                     encode(item, out);
                 }
-            } else if constexpr (std::is_same_v<T, RespMap>) {
+            } else if constexpr (std::is_same_v<T, IrspMap>) {
                 out += '%';
                 out += std::to_string(v.entries.size());
                 out += "\r\n";
@@ -188,20 +188,20 @@ void Resp1Codec::encode(const RespValue &value, std::string &out) {
         value);
 }
 
-std::string Resp1Codec::encode(const RespValue &value) {
+std::string Irsp1Codec::encode(const IrspValue &value) {
     std::string out;
     encode(value, out);
     return out;
 }
 
-Resp1Codec::DecodeResult Resp1Codec::decode(std::string_view buffer) {
+Irsp1Codec::DecodeResult Irsp1Codec::decode(std::string_view buffer) {
     ParseState st = parseValue(buffer, 0);
     return DecodeResult{st.status, std::move(st.value), st.pos};
 }
 
-RespValue Resp1Codec::decodeInline(std::string_view line) {
+IrspValue Irsp1Codec::decodeInline(std::string_view line) {
     auto isSpace = [](char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; };
-    RespArray arr;
+    IrspArray arr;
     std::size_t i = 0;
     const std::size_t n = line.size();
     while (i < n) {
@@ -214,4 +214,4 @@ RespValue Resp1Codec::decodeInline(std::string_view line) {
     return arr;
 }
 
-} // namespace irp
+} // namespace irsp

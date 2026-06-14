@@ -1,7 +1,7 @@
 {
-  "name": "@industrial-runtime/irp-client",
+  "name": "@industrial-runtime/irsp-client",
   "version": "1.0.0",
-  "description": "IRP (Industrial Runtime Protocol) WebSocket client SDK for browser and Node.",
+  "description": "IRSP (Industrial Runtime Protocol) WebSocket client SDK for browser and Node.",
   "type": "module",
   "main": "src/index.js",
   "exports": {

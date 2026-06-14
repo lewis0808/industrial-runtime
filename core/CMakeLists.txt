@@ -59,8 +59,8 @@ if(NOT WIN32)
     target_link_libraries(core_plugin_manager PRIVATE ${CMAKE_DL_LIBS})
 endif()
 
-# 可执行入口 IndustrialRuntime 在根 CMakeLists 定义（需同时链接 core 与 irp，
-# 而 irp 依赖 core、须在 core 之后 add_subdirectory）。
+# 可执行入口 IndustrialRuntime 在根 CMakeLists 定义（需同时链接 core 与 irsp，
+# 而 irsp 依赖 core、须在 core 之后 add_subdirectory）。
 
 # ---- 单元测试 ----
 if(IR_BUILD_TESTS)

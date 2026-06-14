@@ -1,10 +1,10 @@
-// IRP 客户端演示。先运行 IndustrialRuntime.exe（默认监听 9777，每秒推送 system/heartbeat），
-// 再执行： node sdk/irp-client/examples/demo.mjs
+// IRSP 客户端演示。先运行 IndustrialRuntime.exe（默认监听 9777，每秒推送 system/heartbeat），
+// 再执行： node sdk/irsp-client/examples/demo.mjs
 
-import { IrpClient } from '../src/index.js';
+import { IrspClient } from '../src/index.js';
 
-const url = process.env.IRP_URL ?? 'ws://127.0.0.1:9777';
-const client = new IrpClient(url);
+const url = process.env.IRSP_URL ?? 'ws://127.0.0.1:9777';
+const client = new IrspClient(url);
 
 client.on('tag', (t) => {
   console.log(`[tag] ${t.name} (${t.type}) = ${t.value}  @${t.ts}`);

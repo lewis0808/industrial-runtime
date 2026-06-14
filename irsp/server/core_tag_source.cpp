@@ -7,7 +7,7 @@
 
 #include "semantic/topic.hpp"
 
-namespace irp {
+namespace irsp {
 
 namespace {
 
@@ -99,4 +99,4 @@ ScanResult CoreTagSource::scan(const std::string &cursor, const std::string &pat
     return result;
 }
 
-} // namespace irp
+} // namespace irsp

@@ -30,9 +30,9 @@
 ```markdown
 industrial-runtime/
 ├── core/                # runtime kernel
-├── irp/                 # IRP protocol (tag system)
+├── irsp/                 # IRSP protocol (tag system)
 ├── sdk/
-│   ├── irp-client/      # 开发语言 SDK（Python/Java/JS）
+│   ├── irsp-client/      # 开发语言 SDK（Python/Java/JS）
 │   ├── plugin-sdk/      # 插件开发 SDK（设备侧）
 │
 ├── plugins/             # 动态加载插件
@@ -262,7 +262,7 @@ Tag Name == Topic
 Topic Separator == /
 ```
 
-- Tag 名即 IRP Topic，统一使用 `/` 分层，例如：
+- Tag 名即 IRSP Topic，统一使用 `/` 分层，例如：
 ```markdown
 example/temperature
 factory1/line1/robot1/temp
@@ -292,7 +292,7 @@ factory1/line1/robot1/temp
 ```markdown
 Core 不依赖设备
 设备全部插件化
-应用全部通过 IRP 接入
+应用全部通过 IRSP 接入
 Runtime 是唯一数据中心
 Tag 与 Stream 是两套独立体系
 ```

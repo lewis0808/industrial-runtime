@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace irp {
+namespace irsp {
 
 /// 写回结果。
 enum class WriteResult {
@@ -24,4 +24,4 @@ class TagWriter {
                                             const std::string &value) = 0;
 };
 
-} // namespace irp
+} // namespace irsp

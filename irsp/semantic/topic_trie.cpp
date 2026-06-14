@@ -2,7 +2,7 @@
 
 #include "semantic/topic.hpp"
 
-namespace irp {
+namespace irsp {
 
 bool TopicTrie::subscribe(std::string_view pattern, SubscriberId id) {
     if (!TopicMatcher::isValidPattern(pattern)) {
@@ -111,4 +111,4 @@ std::size_t TopicTrie::countFor(SubscriberId id) const {
     return it == idPatterns_.end() ? 0 : it->second.size();
 }
 
-} // namespace irp
+} // namespace irsp

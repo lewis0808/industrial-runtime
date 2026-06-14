@@ -4,12 +4,12 @@
 #include <string>
 #include <string_view>
 
-#include "codec/resp_value.hpp"
+#include "codec/irsp_value.hpp"
 
-namespace irp {
+namespace irsp {
 
-/// resp1 编解码：RespValue <-> 字节。详见 irp/encoding/resp1.md。
-class Resp1Codec {
+/// irsp1 编解码：IrspValue <-> 字节。详见 irsp/encoding/irsp1.md。
+class Irsp1Codec {
   public:
     enum class Status {
         Ok,         ///< 成功解析出一个完整顶层值
@@ -19,22 +19,22 @@ class Resp1Codec {
 
     struct DecodeResult {
         Status status{Status::Error};
-        RespValue value{RespNull{}};
+        IrspValue value{IrspNull{}};
         std::size_t consumed{0}; ///< 已消费字节数（Ok 时有效）
     };
 
     /// 编码一个值，追加到 out。
-    static void encode(const RespValue &value, std::string &out);
+    static void encode(const IrspValue &value, std::string &out);
 
     /// 编码一个值并返回字节串。
-    [[nodiscard]] static std::string encode(const RespValue &value);
+    [[nodiscard]] static std::string encode(const IrspValue &value);
 
     /// 从 buffer 起始解析一个顶层值。
     [[nodiscard]] static DecodeResult decode(std::string_view buffer);
 
     /// 解析 inline 命令（Redis 风格，调试用）：按空白把一行拆成 bulk 数组。
-    /// 用于客户端直接发文本命令（如 wscat 敲 "HELLO 1"），不要求 resp1 编码。空行返回空数组。
-    [[nodiscard]] static RespValue decodeInline(std::string_view line);
+    /// 用于客户端直接发文本命令（如 wscat 敲 "HELLO 1"），不要求 irsp1 编码。空行返回空数组。
+    [[nodiscard]] static IrspValue decodeInline(std::string_view line);
 };
 
-} // namespace irp
+} // namespace irsp

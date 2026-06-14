@@ -1,11 +1,11 @@
-"""resp1 编解码单测（无需服务端）。
+"""irsp1 编解码单测（无需服务端）。
 
 pytest：  pytest
-直跑：    PYTHONPATH=src python tests/test_resp1.py
+直跑：    PYTHONPATH=src python tests/test_irsp1.py
 """
 import struct
 
-from irp_client.resp1 import IrpError, as_str, decode, decode_value, encode_request
+from irsp_client.irsp1 import IrspError, as_str, decode, decode_value, encode_request
 
 
 def test_encode_request():
@@ -17,7 +17,7 @@ def test_decode_basic():
     assert decode(b":42\r\n") == 42
     assert decode(b"$-1\r\n") is None
     err = decode(b"-WRONG_ARITY too many\r\n")
-    assert isinstance(err, IrpError)
+    assert isinstance(err, IrspError)
     assert err.code == "WRONG_ARITY"
     assert err.message == "too many"
 

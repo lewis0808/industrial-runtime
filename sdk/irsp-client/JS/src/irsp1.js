@@ -1,15 +1,15 @@
-// resp1 编解码（IRP V1 编码层的 JS 实现）。
-// 一个 WebSocket 二进制消息 = 一个 IRP 帧（一个顶层 RespValue）。
-// 详见 irp/encoding/resp1.md。
+// irsp1 编解码（IRSP V1 编码层的 JS 实现）。
+// 一个 WebSocket 二进制消息 = 一个 IRSP 帧（一个顶层 IrspValue）。
+// 详见 irsp/encoding/irsp1.md。
 
-/** IRP 错误回复（resp1 的 `-CODE message`）。 */
-export class IrpError extends Error {
+/** IRSP 错误回复（irsp1 的 `-CODE message`）。 */
+export class IrspError extends Error {
   /** @param {string} code @param {string} message */
   constructor(code, message) {
     super(message ? `${code} ${message}` : code);
-    this.name = 'IrpError';
+    this.name = 'IrspError';
     this.code = code;
-    this.irpMessage = message;
+    this.irspMessage = message;
   }
 }
 
@@ -28,7 +28,7 @@ function concat(chunks) {
 }
 
 /**
- * 把命令编码为 resp1 请求帧（bulk 数组）。
+ * 把命令编码为 irsp1 请求帧（bulk 数组）。
  * @param {Array<string|Uint8Array>} parts 命令名与参数（字符串按 UTF-8，或原始字节）
  * @returns {Uint8Array}
  */
@@ -50,8 +50,8 @@ export function asStr(v) {
 }
 
 /**
- * 解码一个完整 resp1 帧。
- * 返回值映射：simple→string，error→IrpError，integer→BigInt，bulk→Uint8Array|null，
+ * 解码一个完整 irsp1 帧。
+ * 返回值映射：simple→string，error→IrspError，integer→BigInt，bulk→Uint8Array|null，
  * array→Array，map→普通对象（键为 UTF-8 字符串）。
  * @param {Uint8Array} bytes
  */
@@ -68,7 +68,7 @@ export function decode(bytes) {
   }
 
   function parse() {
-    if (i >= bytes.length) throw new Error('resp1: 帧不完整');
+    if (i >= bytes.length) throw new Error('irsp1: 帧不完整');
     const type = String.fromCharCode(bytes[i]);
     i += 1;
     const line = readLine();
@@ -77,7 +77,7 @@ export function decode(bytes) {
         return line;
       case '-': {
         const sp = line.indexOf(' ');
-        return sp < 0 ? new IrpError(line, '') : new IrpError(line.slice(0, sp), line.slice(sp + 1));
+        return sp < 0 ? new IrspError(line, '') : new IrspError(line.slice(0, sp), line.slice(sp + 1));
       }
       case ':':
         return BigInt(line);
@@ -106,7 +106,7 @@ export function decode(bytes) {
         return obj;
       }
       default:
-        throw new Error(`resp1: 未知类型字节 0x${bytes[i - 1 - line.length - 2]?.toString(16)}`);
+        throw new Error(`irsp1: 未知类型字节 0x${bytes[i - 1 - line.length - 2]?.toString(16)}`);
     }
   }
 

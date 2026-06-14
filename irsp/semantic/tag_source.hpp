@@ -5,9 +5,9 @@
 #include <string>
 #include <vector>
 
-namespace irp {
+namespace irsp {
 
-/// 协议层的 Tag 记录（已是 IRP 表示：类型标签 + 值字节）。
+/// 协议层的 Tag 记录（已是 IRSP 表示：类型标签 + 值字节）。
 /// 由绑定层（增量 2）从 core::TagValue 转换而来；语义层不感知 core 类型。
 struct TagRecord {
     std::string name;
@@ -33,4 +33,4 @@ class TagSource {
                                           std::size_t count) const = 0;
 };
 
-} // namespace irp
+} // namespace irsp

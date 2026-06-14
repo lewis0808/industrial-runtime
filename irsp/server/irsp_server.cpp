@@ -1,4 +1,4 @@
-#include "server/irp_server.hpp"
+#include "server/irsp_server.hpp"
 
 #include <cctype>
 #include <chrono>
@@ -8,13 +8,13 @@
 
 #include <libwebsockets.h>
 
-#include "codec/resp1_codec.hpp"
+#include "codec/irsp1_codec.hpp"
 #include "common/event.hpp"
 #include "common/tag_value.hpp"
 #include "logger/logger.hpp"
 #include "runtime_engine/runtime_engine.hpp"
 
-namespace irp {
+namespace irsp {
 
 namespace {
 
@@ -43,32 +43,32 @@ std::int64_t eventNs(const core::Event &e) {
 }
 
 std::string encodePushTag(const TagRecord &rec) {
-    RespMap m;
+    IrspMap m;
     m.entries.emplace_back(makeBulk("push"), makeBulk("tag"));
     m.entries.emplace_back(makeBulk("name"), makeBulk(rec.name));
     m.entries.emplace_back(makeBulk("type"), makeBulk(rec.type));
     m.entries.emplace_back(makeBulk("ts"), makeInteger(rec.ts_ns));
     m.entries.emplace_back(makeBulk("value"), makeBulk(rec.value));
-    return Resp1Codec::encode(m);
+    return Irsp1Codec::encode(m);
 }
 
 std::string encodePushEvent(const core::Event &e) {
-    RespMap m;
+    IrspMap m;
     m.entries.emplace_back(makeBulk("push"), makeBulk("event"));
     m.entries.emplace_back(makeBulk("source"), makeBulk(e.source));
     m.entries.emplace_back(makeBulk("category"), makeBulk(e.category));
     m.entries.emplace_back(makeBulk("severity"), makeBulk(severityLower(e.severity)));
     m.entries.emplace_back(makeBulk("ts"), makeInteger(eventNs(e)));
     m.entries.emplace_back(makeBulk("message"), makeBulk(e.message));
-    return Resp1Codec::encode(m);
+    return Irsp1Codec::encode(m);
 }
 
-bool isByeCommand(const RespValue &request) {
-    const auto *arr = std::get_if<RespArray>(&request);
+bool isByeCommand(const IrspValue &request) {
+    const auto *arr = std::get_if<IrspArray>(&request);
     if (arr == nullptr || arr->items.empty()) {
         return false;
     }
-    const auto *b = std::get_if<RespBulk>(&arr->items[0]);
+    const auto *b = std::get_if<IrspBulk>(&arr->items[0]);
     if (b == nullptr) {
         return false;
     }
@@ -79,10 +79,10 @@ bool isByeCommand(const RespValue &request) {
     return name == "BYE";
 }
 
-/// C 回调：转发到 IrpServer 实例。
-int irpLwsCallback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in,
+/// C 回调：转发到 IrspServer 实例。
+int irspLwsCallback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in,
                    std::size_t len) {
-    auto *self = static_cast<IrpServer *>(lws_context_user(lws_get_context(wsi)));
+    auto *self = static_cast<IrspServer *>(lws_context_user(lws_get_context(wsi)));
     if (self == nullptr) {
         return 0;
     }
@@ -91,15 +91,15 @@ int irpLwsCallback(struct lws *wsi, enum lws_callback_reasons reason, void *user
 
 } // namespace
 
-IrpServer::IrpServer(core::RuntimeEngine &runtime, std::uint16_t port)
+IrspServer::IrspServer(core::RuntimeEngine &runtime, std::uint16_t port)
     : runtime_(&runtime), tagSource_(runtime.tags()), writer_(runtime), dispatcher_(tagSource_),
       port_(port) {
     dispatcher_.setWriter(&writer_); // SET 写回出口（路由由 RuntimeEngine.writeHandler 决定）
 }
 
-IrpServer::~IrpServer() { stop(); }
+IrspServer::~IrspServer() { stop(); }
 
-IrpServer::Conn *IrpServer::connFor(void *user) {
+IrspServer::Conn *IrspServer::connFor(void *user) {
     if (user == nullptr) {
         return nullptr;
     }
@@ -108,37 +108,37 @@ IrpServer::Conn *IrpServer::connFor(void *user) {
     return it == conns_.end() ? nullptr : it->second.get();
 }
 
-void IrpServer::processFrame(Conn &conn, const std::string &frame) {
+void IrspServer::processFrame(Conn &conn, const std::string &frame) {
     if (frame.empty()) {
         return;
     }
-    RespValue request;
+    IrspValue request;
     if (frame[0] == '*') {
-        // resp1 编码帧（SDK 正常路径）。
-        auto dec = Resp1Codec::decode(frame);
-        if (dec.status != Resp1Codec::Status::Ok) {
-            conn.outbox.push_back(Resp1Codec::encode(makeError("PROTOCOL_ERROR", "bad frame")));
+        // irsp1 编码帧（SDK 正常路径）。
+        auto dec = Irsp1Codec::decode(frame);
+        if (dec.status != Irsp1Codec::Status::Ok) {
+            conn.outbox.push_back(Irsp1Codec::encode(makeError("PROTOCOL_ERROR", "bad frame")));
             conn.closeAfterWrite = true;
             return;
         }
         request = std::move(dec.value);
     } else {
         // 非 '*' 开头：按 Redis 风格 inline 命令解析（调试用，如 wscat 直接敲 "HELLO 1"）。
-        request = Resp1Codec::decodeInline(frame);
-        const auto *arr = std::get_if<RespArray>(&request);
+        request = Irsp1Codec::decodeInline(frame);
+        const auto *arr = std::get_if<IrspArray>(&request);
         if (arr != nullptr && arr->items.empty()) {
             return; // 空行忽略
         }
     }
     const bool bye = isByeCommand(request);
-    RespValue reply = dispatcher_.handle(conn.session, request);
-    conn.outbox.push_back(Resp1Codec::encode(reply));
+    IrspValue reply = dispatcher_.handle(conn.session, request);
+    conn.outbox.push_back(Irsp1Codec::encode(reply));
     if (bye) {
         conn.closeAfterWrite = true;
     }
 }
 
-int IrpServer::dispatchCallback(lws *wsi, int reason, void *user, void *in, std::size_t len) {
+int IrspServer::dispatchCallback(lws *wsi, int reason, void *user, void *in, std::size_t len) {
     switch (reason) {
     case LWS_CALLBACK_ESTABLISHED: {
         std::lock_guard<std::recursive_mutex> lk(mutex_);
@@ -221,13 +221,13 @@ int IrpServer::dispatchCallback(lws *wsi, int reason, void *user, void *in, std:
     return 0;
 }
 
-void IrpServer::serviceLoop(std::stop_token stopToken) {
+void IrspServer::serviceLoop(std::stop_token stopToken) {
     while (!stopToken.stop_requested() && running_.load(std::memory_order_relaxed)) {
         lws_service(context_, 0);
     }
 }
 
-void IrpServer::routeTag(const std::string &name) {
+void IrspServer::routeTag(const std::string &name) {
     {
         std::lock_guard<std::recursive_mutex> lk(mutex_);
         const auto ids = dispatcher_.tagSubscribers(name);
@@ -251,7 +251,7 @@ void IrpServer::routeTag(const std::string &name) {
     }
 }
 
-void IrpServer::onEvent(const core::Event &event) {
+void IrspServer::onEvent(const core::Event &event) {
     {
         std::lock_guard<std::recursive_mutex> lk(mutex_);
         const auto ids =
@@ -272,7 +272,7 @@ void IrpServer::onEvent(const core::Event &event) {
     }
 }
 
-void IrpServer::start() {
+void IrspServer::start() {
     bool expected = false;
     if (!running_.compare_exchange_strong(expected, true)) {
         return;
@@ -281,7 +281,7 @@ void IrpServer::start() {
     lws_set_log_level(LLL_ERR | LLL_WARN, nullptr);
 
     static struct lws_protocols protocols[] = {
-        {"irp", irpLwsCallback, sizeof(PerSession), 65536, 0, nullptr, 0},
+        {"irsp", irspLwsCallback, sizeof(PerSession), 65536, 0, nullptr, 0},
         {nullptr, nullptr, 0, 0, 0, nullptr, 0},
     };
 
@@ -296,7 +296,7 @@ void IrpServer::start() {
     context_ = lws_create_context(&info);
     if (context_ == nullptr) {
         running_.store(false, std::memory_order_relaxed);
-        IR_LOG_ERROR("IRP: 创建 libwebsockets context 失败（端口 {}）", port_);
+        IR_LOG_ERROR("IRSP: 创建 libwebsockets context 失败（端口 {}）", port_);
         return;
     }
 
@@ -306,10 +306,10 @@ void IrpServer::start() {
     runtime_->tags().setChangeCallback([this](const core::TagValue &tag) { routeTag(tag.name); });
     eventSubId_ = runtime_->events().subscribe([this](const core::Event &e) { onEvent(e); });
 
-    IR_LOG_INFO("IRP server 监听 ws://0.0.0.0:{}", port_);
+    IR_LOG_INFO("IRSP server 监听 ws://0.0.0.0:{}", port_);
 }
 
-void IrpServer::stop() {
+void IrspServer::stop() {
     bool expected = true;
     if (!running_.compare_exchange_strong(expected, false)) {
         return;
@@ -333,7 +333,7 @@ void IrpServer::stop() {
         lws_context_destroy(context_);
         context_ = nullptr;
     }
-    IR_LOG_INFO("IRP server 已停止");
+    IR_LOG_INFO("IRSP server 已停止");
 }
 
-} // namespace irp
+} // namespace irsp

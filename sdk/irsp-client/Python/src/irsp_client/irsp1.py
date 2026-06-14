@@ -1,6 +1,6 @@
-"""resp1 编解码（IRP V1 编码层的纯 Python 实现）。
+"""irsp1 编解码（IRSP V1 编码层的纯 Python 实现）。
 
-一个 WebSocket 二进制消息 = 一个 IRP 帧（一个顶层 RespValue）。详见 irp/encoding/resp1.md。
+一个 WebSocket 二进制消息 = 一个 IRSP 帧（一个顶层 IrspValue）。详见 irsp/encoding/irsp1.md。
 """
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import struct
 from typing import Any, List, Optional, Union
 
 
-class IrpError(Exception):
-    """IRP 错误回复（resp1 的 ``-CODE message``）。"""
+class IrspError(Exception):
+    """IRSP 错误回复（irsp1 的 ``-CODE message``）。"""
 
     def __init__(self, code: str, message: str = "") -> None:
         super().__init__(f"{code} {message}".strip())
@@ -17,14 +17,14 @@ class IrpError(Exception):
         self.message = message
 
 
-# 解码后的值：str（simple）/ int（integer）/ bytes（bulk）/ None / IrpError / list / dict（map）。
-RespValue = Union[str, int, bytes, None, IrpError, list, dict]
+# 解码后的值：str（simple）/ int（integer）/ bytes（bulk）/ None / IrspError / list / dict（map）。
+IrspValue = Union[str, int, bytes, None, IrspError, list, dict]
 
 _CRLF = b"\r\n"
 
 
 def encode_request(parts: List[Union[str, bytes]]) -> bytes:
-    """把命令编码为 resp1 请求帧（bulk 数组）。字符串按 UTF-8，或直接传原始字节。"""
+    """把命令编码为 irsp1 请求帧（bulk 数组）。字符串按 UTF-8，或直接传原始字节。"""
     out = bytearray()
     out += f"*{len(parts)}\r\n".encode()
     for p in parts:
@@ -46,8 +46,8 @@ def as_str(v: Any) -> Optional[str]:
     return str(v)
 
 
-def decode(data: bytes) -> RespValue:
-    """解码一个完整 resp1 帧。"""
+def decode(data: bytes) -> IrspValue:
+    """解码一个完整 irsp1 帧。"""
     n = len(data)
     i = 0
 
@@ -60,10 +60,10 @@ def decode(data: bytes) -> RespValue:
         i = j + 2
         return line
 
-    def parse() -> RespValue:
+    def parse() -> IrspValue:
         nonlocal i
         if i >= n:
-            raise ValueError("resp1: 帧不完整")
+            raise ValueError("irsp1: 帧不完整")
         t = chr(data[i])
         i += 1
         line = read_line()
@@ -71,7 +71,7 @@ def decode(data: bytes) -> RespValue:
             return line
         if t == "-":
             sp = line.find(" ")
-            return IrpError(line, "") if sp < 0 else IrpError(line[:sp], line[sp + 1:])
+            return IrspError(line, "") if sp < 0 else IrspError(line[:sp], line[sp + 1:])
         if t == ":":
             return int(line)
         if t == "$":
@@ -94,7 +94,7 @@ def decode(data: bytes) -> RespValue:
                 v = parse()
                 obj[as_str(k)] = v
             return obj
-        raise ValueError(f"resp1: 未知类型 '{t}'")
+        raise ValueError(f"irsp1: 未知类型 '{t}'")
 
     return parse()
 

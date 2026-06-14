@@ -7,7 +7,7 @@
 #include "common/tag_value.hpp"
 #include "runtime_engine/runtime_engine.hpp"
 
-namespace irp {
+namespace irsp {
 
 namespace {
 
@@ -61,4 +61,4 @@ WriteResult CoreTagWriter::write(const std::string &name, const std::string &typ
     return runtime_->writeTag(tag) ? WriteResult::Accepted : WriteResult::NotHandled;
 }
 
-} // namespace irp
+} // namespace irsp

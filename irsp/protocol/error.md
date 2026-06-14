@@ -1,8 +1,8 @@
-# IRP 错误模型
+# IRSP 错误模型
 
 ## 错误帧
 
-错误以 RESP 错误类型返回：`-<CODE> <message>\r\n`（V2 起 message 可走 MessagePack）。
+错误以 IRSP 错误类型返回：`-<CODE> <message>\r\n`（V2 起 message 可走 MessagePack）。
 `CODE` 为大写枚举，`message` 为人类可读补充，客户端**按 CODE 编程，按 message 显示**。
 
 示例：`-WRONG_ARITY GET requires exactly 1 argument`

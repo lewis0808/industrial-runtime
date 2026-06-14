@@ -28,13 +28,13 @@ if(IR_BUILD_TESTS)
     enable_testing()
 endif()
 
-# sdk/plugin-sdk 是面向外部开发者的交付物（同 sdk/irp-client，仅头 + 示例），不进主构建。
+# sdk/plugin-sdk 是面向外部开发者的交付物（同 sdk/irsp-client，仅头 + 示例），不进主构建。
 # core 作为宿主自带一份 ABI 头副本（core/irplugin/）。设备插件作为独立工程开发（拷 SDK 头），
 # 编出的动态库放进运行时同级 plugins/ 即可。
 add_subdirectory(core)
-add_subdirectory(irp)
+add_subdirectory(irsp)
 
-# 可执行入口：组合 core 运行时 + IRP WebSocket 服务（在 core/irp 之后定义）。
+# 可执行入口：组合 core 运行时 + IRSP WebSocket 服务（在 core/irsp 之后定义）。
 add_executable(IndustrialRuntime core/main.cpp)
 target_link_libraries(IndustrialRuntime
-    PRIVATE core_runtime_engine core_logger core_plugin_host core_plugin_manager irp_server)
+    PRIVATE core_runtime_engine core_logger core_plugin_host core_plugin_manager irsp_server)

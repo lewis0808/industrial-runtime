@@ -5,7 +5,7 @@
 #include "semantic/topic_trie.hpp"
 #include "tests/test_util.hpp"
 
-using namespace irp;
+using namespace irsp;
 
 namespace {
 bool eq(const std::vector<std::uint64_t> &a, const std::vector<std::uint64_t> &b) {

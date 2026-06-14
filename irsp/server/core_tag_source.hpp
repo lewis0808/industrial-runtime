@@ -6,9 +6,9 @@
 #include "semantic/tag_source.hpp"
 #include "tag_engine/tag_engine.hpp"
 
-namespace irp {
+namespace irsp {
 
-/// 把 core::TagEngine 适配为 IRP 语义层的只读 TagSource。
+/// 把 core::TagEngine 适配为 IRSP 语义层的只读 TagSource。
 ///
 /// 负责 core::TagValue -> 协议 TagRecord 的封送（类型标签 + 小端字节，见 datatype.md），
 /// 以及无状态游标的 SCAN。仅读取，不改 core。
@@ -27,4 +27,4 @@ class CoreTagSource final : public TagSource {
     const core::TagEngine *engine_;
 };
 
-} // namespace irp
+} // namespace irsp

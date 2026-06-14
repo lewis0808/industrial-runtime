@@ -1,16 +1,16 @@
 """
-IRP 客户端演示。先启动 IndustrialRuntime（9777），再执行： python examples/demo.py
-（需先安装：pip install dist/irp_client-*.whl）
+IRSP 客户端演示。先启动 IndustrialRuntime（9777），再执行： python examples/demo.py
+（需先安装：pip install dist/irsp_client-*.whl）
 """
 import asyncio
 import os
 
-from irp_client import IrpClient, IrpEvent, TagValue
+from irsp_client import IrspClient, IrspEvent, TagValue
 
 
 async def main() -> None:
-    url = os.environ.get("IRP_URL", "ws://127.0.0.1:9777")
-    client = IrpClient(url)
+    url = os.environ.get("IRSP_URL", "ws://127.0.0.1:9777")
+    client = IrspClient(url)
 
     await client.connect()
     # print("已连接，服务端能力:", client.server)

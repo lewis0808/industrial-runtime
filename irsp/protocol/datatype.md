@@ -1,4 +1,4 @@
-# IRP 数据模型
+# IRSP 数据模型
 
 本文件定义语义层的数据模型（跨版本恒定）。具体字节如何编码见 `encoding/`。
 
@@ -10,7 +10,7 @@ Tag 值的类型用简单字符串标签表示，与 `core::DataType` / Plugin A
 null  bool  i8  i16  i32  i64  u8  u16  u32  u64  f32  f64  str
 ```
 
-值的二进制表示（V1，见 [encoding/resp1.md](../encoding/resp1.md)）：
+值的二进制表示（V1，见 [encoding/irsp1.md](../encoding/irsp1.md)）：
 - 数值类型：定长**小端原始字节**（如 `f64` = 8 字节、`i32` = 4 字节）放入 bulk。
 - `str`：UTF-8 原始字节。
 - `null`：空值（bulk 长度 -1）。
@@ -23,7 +23,7 @@ null  bool  i8  i16  i32  i64  u8  u16  u32  u64  f32  f64  str
 **不用位置数组**。理由：未来新增字段（`quality`、`unit`、`source`、`device`…）时，
 旧 SDK 按 key 读取、忽略未知 key 即可，**不破坏兼容**。
 
-map 在 V1 RESP 编码中用 `%` 类型（见 encoding）。
+map 在 V1 IRSP 编码中用 `%` 类型（见 encoding）。
 
 ## 3. TagValue
 

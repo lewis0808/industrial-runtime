@@ -1,6 +1,6 @@
-# IRP 会话示例（V1 / WebSocket / resp1）
+# IRSP 会话示例（V1 / WebSocket / irsp1）
 
-每个代码块为一个 WS 二进制消息载荷（resp1 编码）。`C→S` 客户端发，`S→C` 服务端发。
+每个代码块为一个 WS 二进制消息载荷（irsp1 编码）。`C→S` 客户端发，`S→C` 服务端发。
 为可读，二进制值以 `<...>` 注记，CRLF 省略显示但实际存在。
 
 ## 1. 握手（HELLO 强制）
@@ -9,7 +9,7 @@
 C→S   *2  $5 HELLO  $1 1
 S→C   %5  $6 server $24 industrial-runtime/1.0.0
             $7 version $1 1
-            $8 encoding $5 resp1
+            $8 encoding $5 irsp1
             $10 transports $9 websocket
             $12 capabilities $9 tag,event
 ```

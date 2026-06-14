@@ -1,4 +1,4 @@
-// 端到端集成测试：真实 WebSocket 客户端连到 IrpServer，跑通
+// 端到端集成测试：真实 WebSocket 客户端连到 IrspServer，跑通
 // HELLO -> GET -> SUBSCRIBE -> 触发 Tag 变化 -> 收到 tag 推送。
 //
 // 客户端与服务端各自一个 libwebsockets context（同进程，分别在不同线程/循环）。
@@ -13,13 +13,13 @@
 
 #include <libwebsockets.h>
 
-#include "codec/resp1_codec.hpp"
-#include "codec/resp_value.hpp"
+#include "codec/irsp1_codec.hpp"
+#include "codec/irsp_value.hpp"
 #include "runtime_engine/runtime_engine.hpp"
-#include "server/irp_server.hpp"
+#include "server/irsp_server.hpp"
 #include "tests/test_util.hpp"
 
-using namespace irp;
+using namespace irsp;
 
 namespace {
 
@@ -40,22 +40,22 @@ struct ClientState {
 };
 
 std::string encodeCmd(const std::vector<std::string> &parts) {
-    RespArray a;
+    IrspArray a;
     for (const auto &p : parts) {
         a.items.push_back(makeBulk(p));
     }
-    return Resp1Codec::encode(a);
+    return Irsp1Codec::encode(a);
 }
 
-const std::string *mapGet(const RespValue &v, const std::string &key) {
-    const auto *m = std::get_if<RespMap>(&v);
+const std::string *mapGet(const IrspValue &v, const std::string &key) {
+    const auto *m = std::get_if<IrspMap>(&v);
     if (m == nullptr) {
         return nullptr;
     }
     for (const auto &[k, val] : m->entries) {
-        const auto *kb = std::get_if<RespBulk>(&k);
+        const auto *kb = std::get_if<IrspBulk>(&k);
         if (kb != nullptr && kb->data == key) {
-            const auto *vb = std::get_if<RespBulk>(&val);
+            const auto *vb = std::get_if<IrspBulk>(&val);
             return vb != nullptr ? &vb->data : nullptr;
         }
     }
@@ -67,11 +67,11 @@ void sendCmd(ClientState &s, const std::vector<std::string> &parts) {
     lws_callback_on_writable(s.wsi);
 }
 
-void onReply(ClientState &s, const RespValue &v) {
+void onReply(ClientState &s, const IrspValue &v) {
     switch (s.step) {
     case 1: { // HELLO 回复
         const auto *enc = mapGet(v, "encoding");
-        s.helloOk = (enc != nullptr && *enc == "resp1");
+        s.helloOk = (enc != nullptr && *enc == "irsp1");
         s.step = 2;
         sendCmd(s, {"GET", "plant/temp"});
         break;
@@ -89,7 +89,7 @@ void onReply(ClientState &s, const RespValue &v) {
         break;
     }
     case 3: { // SUBSCRIBE 回复（整数）
-        s.subOk = std::holds_alternative<RespInteger>(v);
+        s.subOk = std::holds_alternative<IrspInteger>(v);
         s.step = 4;
         // 触发 Tag 变化 -> 服务端应推送。
         s.runtime->pushTag(core::TagValue{"plant/temp", 43.0});
@@ -125,9 +125,9 @@ int clientCallback(struct lws *wsi, enum lws_callback_reasons reason, void * /*u
     case LWS_CALLBACK_CLIENT_RECEIVE: {
         s->rx.append(static_cast<const char *>(in), len);
         if (lws_is_final_fragment(wsi) && lws_remaining_packet_payload(wsi) == 0) {
-            auto dec = Resp1Codec::decode(s->rx);
+            auto dec = Irsp1Codec::decode(s->rx);
             s->rx.clear();
-            if (dec.status == Resp1Codec::Status::Ok) {
+            if (dec.status == Irsp1Codec::Status::Ok) {
                 onReply(*s, dec.value);
             } else {
                 s->failed = true;
@@ -170,7 +170,7 @@ int main() {
     runtime.start();
     runtime.pushTag(core::TagValue{"plant/temp", 42.0});
 
-    IrpServer server(runtime, TEST_PORT);
+    IrspServer server(runtime, TEST_PORT);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 待监听就绪
 
@@ -179,7 +179,7 @@ int main() {
     state.runtime = &runtime;
 
     static struct lws_protocols protocols[] = {
-        {"irp", clientCallback, 0, 65536, 0, nullptr, 0},
+        {"irsp", clientCallback, 0, 65536, 0, nullptr, 0},
         {nullptr, nullptr, 0, 0, 0, nullptr, 0},
     };
 
@@ -204,7 +204,7 @@ int main() {
         cci.path = "/";
         cci.host = "127.0.0.1";
         cci.origin = "127.0.0.1";
-        cci.protocol = "irp";
+        cci.protocol = "irsp";
         cci.ssl_connection = 0;
         cci.ietf_version_or_minus_one = -1;
         lws_client_connect_via_info(&cci);

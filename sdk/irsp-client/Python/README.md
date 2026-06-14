@@ -1,37 +1,37 @@
-# irp-client (Python)
+# irsp-client (Python)
 
-IRP（Industrial Runtime Protocol）的 Python 客户端 SDK —— **纯 Python，asyncio**，
+IRSP（Industrial Runtime Protocol）的 Python 客户端 SDK —— **纯 Python，asyncio**，
 依赖仅 `websockets`。打包为 `py3-none-any` wheel，**`pip install` 即用**。
 
-位置：`sdk/irp-client/Python/`。协议规格见仓库 `irp/`。
+位置：`sdk/irsp-client/Python/`。协议规格见仓库 `irsp/`。
 
 ## 安装
 
 直接装预构建 wheel（推荐）：
 
 ```bash
-pip install dist/irp_client-1.0.0-py3-none-any.whl
+pip install dist/irsp_client-1.0.0-py3-none-any.whl
 ```
 
 或从源码目录安装：
 
 ```bash
-pip install ./sdk/irp-client/Python
+pip install ./sdk/irsp-client/Python
 ```
 
 ## 用法
 
 ```python
 import asyncio
-from irp_client import IrpClient
+from irsp_client import IrspClient
 
 async def main():
-    client = IrpClient("ws://127.0.0.1:9777")
+    client = IrspClient("ws://127.0.0.1:9777")
     client.on_tag(lambda t: print(t.name, "=", t.value))
     client.on_event(lambda e: print(e.severity, e.message))
 
     await client.connect()                       # 自动 HELLO 握手
-    print(client.server)                         # {'server':..., 'encoding':'resp1', ...}
+    print(client.server)                         # {'server':..., 'encoding':'irsp1', ...}
 
     tag = await client.get("plant/line1/temp")   # TagValue | None
     await client.subscribe("plant/#")            # 子树订阅，变化经 on_tag 回调
@@ -42,7 +42,7 @@ async def main():
 asyncio.run(main())
 ```
 
-也支持异步上下文：`async with IrpClient(url) as client: ...`。
+也支持异步上下文：`async with IrspClient(url) as client: ...`。
 回调可为同步函数或协程函数（协程会被自动调度）。
 
 ## API
@@ -65,7 +65,7 @@ asyncio.run(main())
 @dataclass
 class TagValue: name: str; type: str; ts: int; value: Any; quality: str | None
 @dataclass
-class IrpEvent: source: str; category: str; severity: str; ts: int; message: str
+class IrspEvent: source: str; category: str; severity: str; ts: int; message: str
 ```
 
 `value` 已按 `type`（`bool/i8../u64/f32/f64/str/null`）解码；`ts` 为纳秒（Python int 无精度问题）。
@@ -73,20 +73,20 @@ class IrpEvent: source: str; category: str; severity: str; ts: int; message: str
 ## 构建 wheel
 
 ```bash
-cd sdk/irp-client/Python
-pip wheel . --no-deps -w dist        # 产出 dist/irp_client-1.0.0-py3-none-any.whl
+cd sdk/irsp-client/Python
+pip wheel . --no-deps -w dist        # 产出 dist/irsp_client-1.0.0-py3-none-any.whl
 # 或： python -m build --wheel
 ```
 
 ## 测试
 
 ```bash
-PYTHONPATH=src python tests/test_resp1.py     # 纯 codec，无需服务端 / 无需 pytest
+PYTHONPATH=src python tests/test_irsp1.py     # 纯 codec，无需服务端 / 无需 pytest
 # 或： pip install pytest && pytest
 ```
 
 ## 设计要点
 
-- 请求/回复在连接上 **FIFO 顺序**对应（RESP 风格无 id）；推送帧带 `push`(`tag`/`event`) 区分。
-- 编码 resp1（`src/irp_client/resp1.py`），数值小端二进制。
+- 请求/回复在连接上 **FIFO 顺序**对应（IRSP 风格无 id）；推送帧带 `push`(`tag`/`event`) 区分。
+- 编码 irsp1（`src/irsp_client/irsp1.py`），数值小端二进制。
 - 仅 V1：`SET`/Stream 未提供（协议预留）。

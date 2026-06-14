@@ -1,6 +1,6 @@
-"""IRP WebSocket 客户端（asyncio，纯 Python，依赖 websockets）。
+"""IRSP WebSocket 客户端（asyncio，纯 Python，依赖 websockets）。
 
-语义：请求-回复在连接上按 FIFO 顺序对应（RESP 风格，无请求 id）；
+语义：请求-回复在连接上按 FIFO 顺序对应（IRSP 风格，无请求 id）；
 服务端主动推送的帧带 ``push`` 字段（"tag" / "event"），据此与回复区分。
 """
 from __future__ import annotations
@@ -12,7 +12,7 @@ from typing import Any, Callable, Deque, Dict, List, Optional
 
 import websockets
 
-from .resp1 import IrpError, as_str, decode, decode_value, encode_request
+from .irsp1 import IrspError, as_str, decode, decode_value, encode_request
 
 
 @dataclass
@@ -25,7 +25,7 @@ class TagValue:
 
 
 @dataclass
-class IrpEvent:
+class IrspEvent:
     source: str
     category: str
     severity: str
@@ -37,12 +37,12 @@ def _is_push(v: Any) -> bool:
     return isinstance(v, dict) and "push" in v
 
 
-class IrpClient:
-    """异步 IRP 客户端。
+class IrspClient:
+    """异步 IRSP 客户端。
 
     用法::
 
-        async with IrpClient("ws://127.0.0.1:9777") as c:
+        async with IrspClient("ws://127.0.0.1:9777") as c:
             c.on_tag(lambda t: print(t))
             await c.subscribe("plant/#")
             ...
@@ -56,26 +56,26 @@ class IrpClient:
         self._reader: Optional[asyncio.Task] = None
         self._closing = False
         self._tag_cbs: List[Callable[[TagValue], Any]] = []
-        self._event_cbs: List[Callable[[IrpEvent], Any]] = []
+        self._event_cbs: List[Callable[[IrspEvent], Any]] = []
 
     # ---- 推送回调（可注册同步或协程函数） ----
-    def on_tag(self, cb: Callable[[TagValue], Any]) -> "IrpClient":
+    def on_tag(self, cb: Callable[[TagValue], Any]) -> "IrspClient":
         self._tag_cbs.append(cb)
         return self
 
-    def on_event(self, cb: Callable[[IrpEvent], Any]) -> "IrpClient":
+    def on_event(self, cb: Callable[[IrspEvent], Any]) -> "IrspClient":
         self._event_cbs.append(cb)
         return self
 
     # ---- 连接 ----
-    async def connect(self) -> "IrpClient":
-        self._ws = await websockets.connect(self.url, subprotocols=["irp"])
+    async def connect(self) -> "IrspClient":
+        self._ws = await websockets.connect(self.url, subprotocols=["irsp"])
         self._reader = asyncio.create_task(self._read_loop())
         hello = await self._send(["HELLO", "1"])
         self.server = {k: as_str(v) for k, v in hello.items()}
         return self
 
-    async def __aenter__(self) -> "IrpClient":
+    async def __aenter__(self) -> "IrspClient":
         return await self.connect()
 
     async def __aexit__(self, *exc: Any) -> None:
@@ -92,7 +92,7 @@ class IrpClient:
             while self._pending:
                 fut = self._pending.popleft()
                 if not fut.done():
-                    fut.set_exception(IrpError("CLOSED", "connection closed"))
+                    fut.set_exception(IrspError("CLOSED", "connection closed"))
 
     def _on_frame(self, data: bytes) -> None:
         try:
@@ -109,7 +109,7 @@ class IrpClient:
         if self._pending:
             fut = self._pending.popleft()
             if not fut.done():
-                if isinstance(value, IrpError):
+                if isinstance(value, IrspError):
                     fut.set_exception(value)
                 else:
                     fut.set_result(value)
@@ -123,7 +123,7 @@ class IrpClient:
 
     async def _send(self, parts: List[Any]) -> Any:
         if self._ws is None:
-            raise IrpError("CLOSED", "未连接")
+            raise IrspError("CLOSED", "未连接")
         fut: "asyncio.Future" = asyncio.get_running_loop().create_future()
         self._pending.append(fut)
         await self._ws.send(encode_request(parts))
@@ -143,8 +143,8 @@ class IrpClient:
             tag.quality = q
         return tag
 
-    def _decode_event(self, m: dict) -> IrpEvent:
-        return IrpEvent(
+    def _decode_event(self, m: dict) -> IrspEvent:
+        return IrspEvent(
             source=as_str(m.get("source")) or "",
             category=as_str(m.get("category")) or "",
             severity=as_str(m.get("severity")) or "info",

@@ -1,3 +1,3 @@
-// IRP 客户端 SDK（JavaScript / ESM）入口。
-export { IrpClient } from './client.js';
-export { IrpError, encodeRequest, decode, decodeValue, asStr } from './resp1.js';
+// IRSP 客户端 SDK（JavaScript / ESM）入口。
+export { IrspClient } from './client.js';
+export { IrspError, encodeRequest, decode, decodeValue, asStr } from './irsp1.js';

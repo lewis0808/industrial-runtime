@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace irp {
+namespace irsp {
 
 /// 订阅 Trie：按 topic 层级组织订阅模式，支持具体 topic 的高效匹配查找。
 ///
@@ -50,4 +50,4 @@ class TopicTrie {
     std::unordered_map<SubscriberId, std::set<std::string>> idPatterns_; ///< 反向索引
 };
 
-} // namespace irp
+} // namespace irsp

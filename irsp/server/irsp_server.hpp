@@ -24,22 +24,22 @@ class TagValue;
 class Event;
 } // namespace core
 
-namespace irp {
+namespace irsp {
 
-/// IRP WebSocket 服务端（基于 libwebsockets）。
+/// IRSP WebSocket 服务端（基于 libwebsockets）。
 ///
 /// 服务循环跑在独立线程。每条连接维护 Session + 发送队列；接收整帧后经 Dispatcher
 /// 分发并回复。core 的 TagEngine 变更回调 / EventBus 事件经 lws_cancel_service 唤醒
 /// 服务线程，在可写回调中推送给订阅连接。
 ///
-/// IRP 单向依赖 core 只读接口；core 不依赖 irp。
-class IrpServer {
+/// IRSP 单向依赖 core 只读接口；core 不依赖 irsp。
+class IrspServer {
   public:
-    explicit IrpServer(core::RuntimeEngine &runtime, std::uint16_t port = 9777);
-    ~IrpServer();
+    explicit IrspServer(core::RuntimeEngine &runtime, std::uint16_t port = 9777);
+    ~IrspServer();
 
-    IrpServer(const IrpServer &) = delete;
-    IrpServer &operator=(const IrpServer &) = delete;
+    IrspServer(const IrspServer &) = delete;
+    IrspServer &operator=(const IrspServer &) = delete;
 
     /// 创建 LWS context、注册 core 回调、启动服务线程。
     void start();
@@ -88,4 +88,4 @@ class IrpServer {
     std::uint64_t eventSubId_{0};
 };
 
-} // namespace irp
+} // namespace irsp

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>IRP Live Monitor</title>
+  <title>IRSP Live Monitor</title>
   <style>
     :root {
       --bg: #0e1116; --panel: #161b22; --line: #232a33; --muted: #8b949e;
@@ -56,7 +56,7 @@
 <body>
   <header>
     <span id="dot" class="dot"></span>
-    <h1>IRP Live Monitor</h1>
+    <h1>IRSP Live Monitor</h1>
     <span id="serverInfo" class="meta">未连接</span>
   </header>
 
@@ -79,7 +79,7 @@
   </main>
 
   <script type="module">
-    import { IrpClient } from '../src/index.js';
+    import { IrspClient } from '../src/index.js';
 
     const $ = (id) => document.getElementById(id);
     const dot = $('dot'), serverInfo = $('serverInfo');
@@ -121,7 +121,7 @@
     $('connect').onclick = async () => {
       const url = $('url').value.trim();
       const pattern = $('pattern').value.trim() || '#';
-      client = new IrpClient(url);
+      client = new IrspClient(url);
       client.on('tag', (t) => { tags.set(t.name, t); renderTags(); });
       client.on('event', addEvent);
       client.on('close', () => { setConnected(false); serverInfo.textContent = '已断开'; });

@@ -3,12 +3,12 @@
 #include <string_view>
 #include <vector>
 
-namespace irp {
+namespace irsp {
 
 /// 按 '/' 分割 topic 为段。空串返回空向量。
 [[nodiscard]] std::vector<std::string_view> splitTopic(std::string_view topic);
 
-/// Topic 匹配原语（MQTT 语义）。详见 irp/protocol/datatype.md。
+/// Topic 匹配原语（MQTT 语义）。详见 irsp/protocol/datatype.md。
 ///
 /// 分隔符 `/`；通配符 `+`（单层）、`#`（多层，必须末段且匹配零或多层）。
 class TopicMatcher {
@@ -24,4 +24,4 @@ class TopicMatcher {
     [[nodiscard]] static bool matches(std::string_view pattern, std::string_view topic);
 };
 
-} // namespace irp
+} // namespace irsp

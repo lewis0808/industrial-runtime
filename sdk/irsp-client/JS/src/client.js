@@ -1,12 +1,12 @@
-// IRP WebSocket 客户端（浏览器 / Node 22+，零运行时依赖，使用全局 WebSocket）。
+// IRSP WebSocket 客户端（浏览器 / Node 22+，零运行时依赖，使用全局 WebSocket）。
 //
-// 语义：请求-回复在连接上按 FIFO 顺序对应（RESP 风格，无请求 id）；
+// 语义：请求-回复在连接上按 FIFO 顺序对应（IRSP 风格，无请求 id）；
 // 服务端主动推送的帧带 `push` 字段（"tag" / "event"），据此与回复区分。
 
-import { encodeRequest, decode, decodeValue, asStr, IrpError } from './resp1.js';
+import { encodeRequest, decode, decodeValue, asStr, IrspError } from './irsp1.js';
 
 /** @typedef {{name:string,type:string,ts:bigint,value:any,quality?:string}} TagValue */
-/** @typedef {{source:string,category:string,severity:string,ts:bigint,message:string}} IrpEvent */
+/** @typedef {{source:string,category:string,severity:string,ts:bigint,message:string}} IrspEvent */
 
 /** 极简事件发射器。事件：'tag'、'event'、'close'、'error'。 */
 class Emitter {
@@ -18,10 +18,10 @@ class Emitter {
 
 function isPushFrame(v) {
   return v != null && typeof v === 'object' && !Array.isArray(v) &&
-    !(v instanceof Uint8Array) && !(v instanceof IrpError) && 'push' in v;
+    !(v instanceof Uint8Array) && !(v instanceof IrspError) && 'push' in v;
 }
 
-export class IrpClient extends Emitter {
+export class IrspClient extends Emitter {
   /** @param {string} url 形如 ws://127.0.0.1:9777 */
   constructor(url) {
     super();
@@ -35,7 +35,7 @@ export class IrpClient extends Emitter {
   /** 建立连接并完成 HELLO 握手。 */
   connect() {
     return new Promise((resolve, reject) => {
-      const ws = new WebSocket(this.url, 'irp');
+      const ws = new WebSocket(this.url, 'irsp');
       ws.binaryType = 'arraybuffer';
       this.ws = ws;
 
@@ -79,7 +79,7 @@ export class IrpClient extends Emitter {
     }
     const p = this._pending.shift();
     if (!p) return; // 无对应请求，忽略
-    if (value instanceof IrpError) p.reject(value);
+    if (value instanceof IrspError) p.reject(value);
     else p.resolve(value);
   }
 

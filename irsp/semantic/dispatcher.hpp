@@ -6,12 +6,12 @@
 #include <unordered_map>
 #include <vector>
 
-#include "codec/resp_value.hpp"
+#include "codec/irsp_value.hpp"
 #include "semantic/tag_source.hpp"
 #include "semantic/tag_writer.hpp"
 #include "semantic/topic_trie.hpp"
 
-namespace irp {
+namespace irsp {
 
 /// 事件订阅过滤器。
 struct EventFilter {
@@ -25,7 +25,7 @@ struct Session {
     bool hello{false};
 };
 
-/// IRP 语义引擎 + 订阅注册表。解析命令、产出回复、维护订阅。
+/// IRSP 语义引擎 + 订阅注册表。解析命令、产出回复、维护订阅。
 ///
 /// 不依赖传输/编码具体实现，也不依赖 core（经 TagSource 读数据）。
 /// **线程不安全**：上层（server）需串行化对同一 Dispatcher 的访问。
@@ -34,7 +34,7 @@ class Dispatcher {
     explicit Dispatcher(const TagSource &tags) noexcept : tags_(&tags) {}
 
     /// 处理一个请求，返回回复值。会按需改变 session 与订阅状态。
-    [[nodiscard]] RespValue handle(Session &session, const RespValue &request);
+    [[nodiscard]] IrspValue handle(Session &session, const IrspValue &request);
 
     /// 注册写回出口（可选）。未设置时 SET 返回 NOT_IMPLEMENTED。
     void setWriter(TagWriter *writer) noexcept { writer_ = writer; }
@@ -60,4 +60,4 @@ class Dispatcher {
     std::unordered_map<std::uint64_t, EventFilter> eventSubs_; ///< 事件订阅
 };
 
-} // namespace irp
+} // namespace irsp

@@ -7,7 +7,7 @@
 
 #include "semantic/topic.hpp"
 
-namespace irp {
+namespace irsp {
 
 namespace {
 
@@ -37,8 +37,8 @@ bool parseCount(const std::string &s, std::size_t &out) {
     return ec == std::errc() && ptr == end;
 }
 
-RespValue tagToMap(const TagRecord &rec) {
-    RespMap m;
+IrspValue tagToMap(const TagRecord &rec) {
+    IrspMap m;
     m.entries.emplace_back(makeBulk("name"), makeBulk(rec.name));
     m.entries.emplace_back(makeBulk("type"), makeBulk(rec.type));
     m.entries.emplace_back(makeBulk("ts"), makeInteger(rec.ts_ns));
@@ -48,15 +48,15 @@ RespValue tagToMap(const TagRecord &rec) {
 
 } // namespace
 
-RespValue Dispatcher::handle(Session &session, const RespValue &request) {
-    const auto *arr = std::get_if<RespArray>(&request);
+IrspValue Dispatcher::handle(Session &session, const IrspValue &request) {
+    const auto *arr = std::get_if<IrspArray>(&request);
     if (arr == nullptr || arr->items.empty()) {
         return makeError("PROTOCOL_ERROR", "expected non-empty command array");
     }
     std::vector<std::string> parts;
     parts.reserve(arr->items.size());
     for (const auto &item : arr->items) {
-        const auto *b = std::get_if<RespBulk>(&item);
+        const auto *b = std::get_if<IrspBulk>(&item);
         if (b == nullptr) {
             return makeError("PROTOCOL_ERROR", "command elements must be bulk strings");
         }
@@ -80,10 +80,10 @@ RespValue Dispatcher::handle(Session &session, const RespValue &request) {
             return makeError("UNSUPPORTED_VERSION", "only version 1 is supported");
         }
         session.hello = true;
-        RespMap m;
+        IrspMap m;
         m.entries.emplace_back(makeBulk("server"), makeBulk("industrial-runtime/1.0.0"));
         m.entries.emplace_back(makeBulk("version"), makeBulk("1"));
-        m.entries.emplace_back(makeBulk("encoding"), makeBulk("resp1"));
+        m.entries.emplace_back(makeBulk("encoding"), makeBulk("irsp1"));
         m.entries.emplace_back(makeBulk("transports"), makeBulk("websocket"));
         m.entries.emplace_back(makeBulk("capabilities"), makeBulk("tag,event"));
         return m;
@@ -110,7 +110,7 @@ RespValue Dispatcher::handle(Session &session, const RespValue &request) {
         if (argc < 1) {
             return makeError("WRONG_ARITY", "MGET requires <topic>...");
         }
-        RespArray out;
+        IrspArray out;
         out.items.reserve(argc);
         for (std::size_t i = 0; i < argc; ++i) {
             auto rec = tags_->read(arg(i));
@@ -139,12 +139,12 @@ RespValue Dispatcher::handle(Session &session, const RespValue &request) {
             return makeError("ERR", "invalid scan pattern");
         }
         ScanResult res = tags_->scan(arg(0), arg(1), count);
-        RespArray names;
+        IrspArray names;
         names.items.reserve(res.names.size());
         for (auto &n : res.names) {
             names.items.push_back(makeBulk(n));
         }
-        RespArray out;
+        IrspArray out;
         out.items.push_back(makeBulk(res.nextCursor));
         out.items.push_back(std::move(names));
         return out;
@@ -256,4 +256,4 @@ std::vector<std::uint64_t> Dispatcher::eventSubscribers(int severityRank,
     return out;
 }
 
-} // namespace irp
+} // namespace irsp

@@ -1,7 +1,7 @@
-// resp1 编解码单测（零依赖，无需服务端）：node --test
+// irsp1 编解码单测（零依赖，无需服务端）：node --test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { encodeRequest, decode, decodeValue, asStr, IrpError } from '../src/index.js';
+import { encodeRequest, decode, decodeValue, asStr, IrspError } from '../src/index.js';
 
 const enc = (s) => new TextEncoder().encode(s);
 
@@ -16,9 +16,9 @@ test('decode 基本类型', () => {
   assert.equal(decode(enc('$-1\r\n')), null);
 
   const err = decode(enc('-WRONG_ARITY too many\r\n'));
-  assert.ok(err instanceof IrpError);
+  assert.ok(err instanceof IrspError);
   assert.equal(err.code, 'WRONG_ARITY');
-  assert.equal(err.irpMessage, 'too many');
+  assert.equal(err.irspMessage, 'too many');
 });
 
 test('decode 数组与 map', () => {

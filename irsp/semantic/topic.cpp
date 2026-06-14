@@ -1,6 +1,6 @@
 #include "semantic/topic.hpp"
 
-namespace irp {
+namespace irsp {
 
 std::vector<std::string_view> splitTopic(std::string_view topic) {
     std::vector<std::string_view> segments;
@@ -91,4 +91,4 @@ bool TopicMatcher::matches(std::string_view pattern, std::string_view topic) {
     return j == t.size();
 }
 
-} // namespace irp
+} // namespace irsp

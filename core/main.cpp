@@ -17,7 +17,7 @@
 #include "plugin_host/plugin_host.hpp"
 #include "plugin_manager/plugin_manager.hpp"
 #include "runtime_engine/runtime_engine.hpp"
-#include "server/irp_server.hpp"
+#include "server/irsp_server.hpp"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -84,10 +84,10 @@ int main(int argc, char **argv) {
     IR_LOG_INFO("插件目录 {}，配置目录 {}，已加载 {} 个插件", pluginDir, configDir, loaded);
     pluginManager.startAll();
 
-    // 启动对外 IRP WebSocket 服务（端口可经配置 irp.port 覆盖，默认 9777）。
-    const auto irpPort = static_cast<std::uint16_t>(config.get<int>("irp.port", 9777));
-    irp::IrpServer irpServer(runtime, irpPort);
-    irpServer.start();
+    // 启动对外 IRSP WebSocket 服务（端口可经配置 irsp.port 覆盖，默认 9777）。
+    const auto irspPort = static_cast<std::uint16_t>(config.get<int>("irsp.port", 9777));
+    irsp::IrspServer irspServer(runtime, irspPort);
+    irspServer.start();
 
     // 示例：每秒采集一个心跳 Tag 并发布一次状态事件。
     runtime.scheduler().addPeriodicTask("heartbeat", std::chrono::seconds(1), [&runtime] {
@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
     }
 
     IR_LOG_INFO("收到退出信号，正在停止...");
-    irpServer.stop();
+    irspServer.stop();
     pluginManager.stopAll();
     runtime.stop();
     core::Logger::flush();

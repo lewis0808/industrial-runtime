@@ -15,21 +15,21 @@ V1 默认传输（`HELLO ... transport=websocket`）。
 ## 连接
 
 - 标准 WebSocket（RFC 6455）握手升级；服务端默认监听端口 **9777**（可配）。
-- 路径默认 `/irp`（可配）。子协议（`Sec-WebSocket-Protocol`）建议声明 `irp`。
-- 一条 WS 连接 = 一个 IRP 会话。
+- 路径默认 `/irsp`（可配）。子协议（`Sec-WebSocket-Protocol`）建议声明 `irsp`。
+- 一条 WS 连接 = 一个 IRSP 会话。
 
 ## 帧映射
 
-- 使用 WebSocket **二进制帧**（opcode 0x2）。**一个 WS 消息 = 一个 IRP 帧**
+- 使用 WebSocket **二进制帧**（opcode 0x2）。**一个 WS 消息 = 一个 IRSP 帧**
   （一条请求、或一条回复、或一条推送）。
-- WS 自带消息边界，故 IRP 帧**无需再加传输级长度前缀**——编码层（resp1）的顶层值
+- WS 自带消息边界，故 IRSP 帧**无需再加传输级长度前缀**——编码层（irsp1）的顶层值
   直接作为 WS 二进制消息载荷。
 - 文本帧（0x1）保留作未来人类可读调试用途，V1 不要求支持。
 
 ## 保活与关闭
 
 - 传输级保活用 WS 标准 ping/pong 控制帧。
-- 应用级 `PING` 命令（见 command.md）用于探测 IRP 语义层存活。
+- 应用级 `PING` 命令（见 command.md）用于探测 IRSP 语义层存活。
 - 正常关闭：客户端发 `BYE` 后双方走 WS Close 握手；异常断开由 server 清理该连接的
   WATCH/SUBSCRIBE 状态。
 

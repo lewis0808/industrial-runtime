@@ -3,29 +3,29 @@
 #include <string>
 #include <variant>
 
-#include "codec/resp_value.hpp"
+#include "codec/irsp_value.hpp"
 #include "semantic/dispatcher.hpp"
 #include "server/core_tag_source.hpp"
 #include "tag_engine/tag_engine.hpp"
 #include "tests/test_util.hpp"
 
-using namespace irp;
+using namespace irsp;
 
 namespace {
-RespValue cmd(std::vector<std::string> parts) {
-    RespArray a;
+IrspValue cmd(std::vector<std::string> parts) {
+    IrspArray a;
     for (auto &p : parts)
         a.items.push_back(makeBulk(std::move(p)));
     return a;
 }
-const std::string *mapGet(const RespValue &v, const std::string &key) {
-    const auto *m = std::get_if<RespMap>(&v);
+const std::string *mapGet(const IrspValue &v, const std::string &key) {
+    const auto *m = std::get_if<IrspMap>(&v);
     if (!m)
         return nullptr;
     for (const auto &[k, val] : m->entries) {
-        const auto *kb = std::get_if<RespBulk>(&k);
+        const auto *kb = std::get_if<IrspBulk>(&k);
         if (kb && kb->data == key) {
-            const auto *vb = std::get_if<RespBulk>(&val);
+            const auto *vb = std::get_if<IrspBulk>(&val);
             return vb ? &vb->data : nullptr;
         }
     }
