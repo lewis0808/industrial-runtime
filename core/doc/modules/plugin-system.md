@@ -70,8 +70,37 @@
   `noexcept`，其中的 `stop/destroy` 若漏拦异常会直接 `std::terminate`，故同样兜底。
 - `loadDirectory(pluginDir, configDir)`：扫 `*.dll/.so/.dylib` 逐个 load，配置路径取
   `configDir/<basename>.json`。
-- `startAll()/stopAll()`；析构 `unloadAll()` 按**逆序** `stop → destroy → 关库`。
-- **线程不安全**：由调用方串行使用（`main` 在启动期单线程加载）。
+- `startAll()/stopAll()`；析构按**逆序** `撤销写回+排空 → stop → destroy → 关库`。
+- **线程安全**：内部 `mutex` 串行化所有管理操作（load/unload/reload/startAll/...），
+  故运行期可由 IRSP 服务线程触发卸载，与采集主线程并行。
+
+### 4.1 按 id 热卸载 / reload（owner 归属 + 引用计数排空）
+
+`unload(id)` / `reload(id)` 支持运行期按插件 id 热卸载与重载。难点是**写回路径的并发安全**：
+插件经 `register_writer` 注册的 handler 是指向其 DLL 的函数指针、`pluginCtx` 指向其内存，
+若卸载时不先撤销并确保无在途调用，`write()` 会调用到已 `FreeLibrary` 的代码（use-after-free）。
+
+解法分两层：
+
+1. **owner 归属**（PluginHost）：每个加载的插件分配一个 `OwnerId`。`PluginManager` 在调用插件
+   `init/start` 前后 `setActiveOwner(owner)`/`setActiveOwner(0)`，使插件在生命周期回调内注册的
+   写回自动归于该 owner（其外注册归 owner 0「无归属」，永不撤销）。
+2. **引用计数排空**（PluginHost）：每个 owner 持一个 `inflight` 原子计数。`write()` 在**共享锁内**
+   选出最长前缀处理器并**自增其 owner 的 inflight**，出锁后再调用插件代码，调用结束自减。
+   卸载时 `retireOwner` 取**独占锁**摘除该 owner 的全部写回——与 `write()` 的选取互斥，故
+   此后不会再有新的自增；`waitQuiescent` 自旋等待 `inflight` 归零（在途调用结束），才放行
+   `stop/destroy/卸库`。owner 状态以 `shared_ptr` 持有，`write()` 出锁调用期间即便 `removeOwner`
+   也不悬空。
+
+卸载流程（`unloadLocked`）：`retireOwner → waitQuiescent → stop（若已启动）→ destroy →
+removeOwner → 卸库 → 从表移除`。`reload` = 记下原 `path/config/started` → `unload` →
+以同参 `load` → 原先 `started` 则重新 `start`（重载失败时旧实例已卸载，不残留）。
+
+控制面入口：**独立的本机 admin 通道**（Windows 命名管道 / POSIX AF_UNIX）上的
+`PLUGIN LIST/UNLOAD/RELOAD`，**与 IRSP 数据面解耦**（控制类有副作用操作不污染数据总线，
+README §7 原则）。协议见 [admin/README.md](../../../admin/README.md)，实现见 `admin/` 模块
+（命令处理纯函数 `handleAdminCommand` + 命名管道/AF_UNIX 传输）。单测 `test_plugin_host`
+覆盖 owner 撤销与并发排空，`test_admin_command` 覆盖控制命令；DLL 级集成由独立插件工程覆盖。
 
 ## 待改善
 
@@ -81,5 +110,5 @@
 | ~~跨边界异常无防护~~（已解决） | 插件 `createPlugin/init/start/stop/destroy/write` 跨 DLL 抛异常 → UB。 | ✅ 宿主侧 `guardedCall`/thunk `noexcept` + `try/catch` 双向隔离；单测 `test_plugin_host` 覆盖写回与 push 边界。 |
 | ~~写回路由是线性首匹配~~（已解决） | ~~`write` O(N) 扫前缀、首个匹配胜出，无最长前缀、无冲突检测。~~ | ✅ 改最长前缀匹配（与注册顺序无关）+ 同前缀去重告警。仍 O(N) 扫描，但 writers 数量级为插件数，无需索引。 |
 | ~~writers_ 无同步~~（已解决） | ~~注册在 init（启动期单线程），但 `write` 跑在 IRSP 服务线程；运行期动态注册则竞态。~~ | ✅ `shared_mutex` 保护：注册独占、写回共享；写回锁内选出处理器、出锁再调用插件，支持运行期动态注册。 |
-| **无热插拔/卸载** | 无按 id 卸载、reload、热替换；`writers_` 只增不减。 | 视运维需求补 unload/reload。 |
-| **进程内无隔离** | 插件崩溃直接拖垮运行时。 | 关键场景可考虑进程外插件（IPC/共享内存）方案。 |
+| ~~无热插拔/卸载~~（已解决） | ~~无按 id 卸载、reload、热替换；`writers_` 只增不减。~~ | ✅ `unload(id)/reload(id)`：owner 归属 + 引用计数排空保证写回路径无 use-after-free；`PluginManager` 线程安全；独立 admin 通道 `PLUGIN` 控制命令接入。见 §4.1。 |
+| **进程内无隔离** | 插件崩溃（段错误 / `abort` / 死循环）直接拖垮运行时，C-ABI 异常隔离也挡不住非 C++ 异常的硬故障。 | 关键场景走**进程外插件**（子进程 + IPC），崩溃/卸载 = 杀进程，天然隔离。方案探索见 [plugin-out-of-process.md](plugin-out-of-process.md)。 |

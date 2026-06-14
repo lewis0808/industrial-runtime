@@ -1,4 +1,6 @@
+#include <atomic>
 #include <stdexcept>
+#include <thread>
 
 #include "common/tag_value.hpp"
 #include "irplugin/plugin_abi.h"
@@ -95,6 +97,76 @@ int main() {
         IR_CHECK(host.write(TagValue{"dup/x", 1}) == true);
         IR_CHECK_EQ(hitFirst, 1);
         IR_CHECK_EQ(hitSecond, 0);
+    }
+
+    // 写回归属：撤销某 owner 后 write() 不再路由到它（热卸载第一步——摘除写回）。
+    {
+        OkApi api;
+        PluginHost host(api);
+        const auto *abi = host.abi();
+        const auto owner = host.createOwner();
+        host.setActiveOwner(owner);
+        int hits = 0;
+        abi->register_writer(abi->ctx, "own/", &hits, [](void *ctx, const IrPluginTagValue *) {
+            ++*static_cast<int *>(ctx);
+            return 1;
+        });
+        host.setActiveOwner(0);
+        IR_CHECK(host.write(TagValue{"own/x", 1}) == true);
+        IR_CHECK_EQ(hits, 1);
+        // 撤销归属 + 排空（无在途调用，立即返回）后不再路由。
+        host.retireOwner(owner);
+        host.waitQuiescent(owner);
+        IR_CHECK(host.write(TagValue{"own/x", 1}) == false);
+        IR_CHECK_EQ(hits, 1);
+        host.removeOwner(owner);
+    }
+
+    // 引用计数排空：写回处理器执行期间 waitQuiescent 必须阻塞，直到在途调用结束才放行。
+    // 这是热卸载安全的核心——卸载 destroy/卸库前必须排空，否则 use-after-free。
+    {
+        OkApi api;
+        PluginHost host(api);
+        const auto *abi = host.abi();
+        const auto owner = host.createOwner();
+        host.setActiveOwner(owner);
+
+        struct Ctl {
+            std::atomic<bool> inHandler{false};
+            std::atomic<bool> release{false};
+        } ctl;
+        abi->register_writer(abi->ctx, "blk/", &ctl, [](void *c, const IrPluginTagValue *) {
+            auto *p = static_cast<Ctl *>(c);
+            p->inHandler.store(true);
+            while (!p->release.load()) {
+                std::this_thread::yield();
+            }
+            return 1;
+        });
+        host.setActiveOwner(0);
+
+        std::thread writer([&] { host.write(TagValue{"blk/x", 1}); });
+        while (!ctl.inHandler.load()) { // 等 handler 进入（此时 inflight=1）
+            std::this_thread::yield();
+        }
+
+        host.retireOwner(owner); // 摘除路由，但在途调用未结束
+        std::atomic<bool> quiesced{false};
+        std::thread waiter([&] {
+            host.waitQuiescent(owner);
+            quiesced.store(true);
+        });
+        // handler 仍阻塞 → inflight>0 → waitQuiescent 不得返回。
+        for (int i = 0; i < 100000 && !quiesced.load(); ++i) {
+            std::this_thread::yield();
+        }
+        IR_CHECK(quiesced.load() == false);
+
+        ctl.release.store(true); // 放行 handler，inflight 归零
+        waiter.join();
+        writer.join();
+        IR_CHECK(quiesced.load() == true);
+        host.removeOwner(owner);
     }
 
     // push thunk：宿主 RuntimeApi 抛异常不得逃逸回插件，thunk 返回 0。

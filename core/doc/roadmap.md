@@ -34,7 +34,7 @@
 | 15 | core 整体 | 接入 `stream/` 流处理模块（当前 `pushStream` 仅转交可选 sink，`main` 未注册 sink）。 |
 | 16 | [config](modules/config.md) | 热重载 / schema 校验 / env 覆盖（工业现场对热重载有价值）。 |
 | 17 | [tag-engine](modules/tag-engine.md) | `string_view` 透明哈希查询，省去临时 `string` 分配。 |
-| 18 | [plugin-system](modules/plugin-system.md) | 插件热插拔 / 按 id 卸载 / reload；关键场景探索进程外插件隔离。 |
+| ~~18~~ | [plugin-system](modules/plugin-system.md) | ✅ 热插拔已落地：`unload(id)/reload(id)`（owner 归属 + 引用计数排空，写回路径无 use-after-free）+ `PluginManager` 线程安全 + **独立 admin 通道** `PLUGIN` 命令（与 IRSP 数据面解耦，见 `admin/`）。进程外隔离已出方案探索 [plugin-out-of-process.md](modules/plugin-out-of-process.md)（未实现）。 |
 | 19 | [memory-store](modules/memory-store.md) | 明确用途边界（缓存/状态？）；按需补 TTL/原子操作。 |
 | 20 | [logger](modules/logger.md) | 按日期滚动；命名 logger 分模块；可选结构化(JSON) sink。 |
 
@@ -48,3 +48,4 @@
 - ✅ 插件 C-ABI 边界异常隔离（宿主→插件调用 + 插件→宿主 thunk 双向 `try/catch`，单插件抛异常不拖垮运行时）。
 - ✅ 写回路由最长前缀匹配 + 同前缀冲突告警；`writers_` 经 `shared_mutex` 并发安全，支持运行期动态注册。
 - ✅ 插件生命周期纯 C 化：C 函数指针 vtable `IrPluginInstance`（ABI v3），宿主与插件无需同一 C++ ABI，任意语言/编译器可写插件。
+- ✅ 运行期按 id 热卸载 / reload：写回 owner 归属 + 引用计数排空（卸载前撤销写回并排空在途调用，杜绝 use-after-free），`PluginManager` 线程安全；经**独立本机 admin 通道**（`admin/` 模块，命名管道/AF_UNIX）的 `PLUGIN LIST/UNLOAD/RELOAD` 控制命令触发，与 IRSP 数据面解耦。
