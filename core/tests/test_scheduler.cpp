@@ -1,5 +1,6 @@
 #include <atomic>
 #include <chrono>
+#include <stdexcept>
 #include <thread>
 
 #include "scheduler/scheduler.hpp"
@@ -40,6 +41,27 @@ int main() {
         const int afterStop = ticks.load();
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         IR_CHECK_EQ(ticks.load(), afterStop);
+    }
+
+    // 任务抛异常被隔离：调度线程存活，抛异常任务自身下周期继续触发，
+    // 同时其它正常任务不受影响。
+    {
+        Scheduler sched;
+        std::atomic<int> throwTicks{0};
+        std::atomic<int> goodTicks{0};
+        sched.start();
+        sched.addPeriodicTask("boom", std::chrono::milliseconds(20), [&] {
+            throwTicks.fetch_add(1);
+            throw std::runtime_error("boom");
+        });
+        sched.addPeriodicTask("good", std::chrono::milliseconds(20),
+                              [&] { goodTicks.fetch_add(1); });
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        // 抛异常任务多次重入说明调度线程未因异常终止。
+        IR_CHECK(throwTicks.load() >= 3);
+        // 正常任务不被同周期的异常任务波及。
+        IR_CHECK(goodTicks.load() >= 3);
+        sched.stop();
     }
 
     IR_TEST_REPORT();
