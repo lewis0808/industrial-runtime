@@ -74,8 +74,13 @@ const std::string *mapGet(const IrspValue &v, const std::string &key) {
     for (const auto &[k, val] : m->entries) {
         const auto *kb = std::get_if<IrspBulk>(&k);
         if (kb && kb->data == key) {
-            const auto *vb = std::get_if<IrspBulk>(&val);
-            return vb ? &vb->data : nullptr;
+            if (const auto *vb = std::get_if<IrspBulk>(&val)) {
+                return &vb->data;
+            }
+            if (const auto *tv = std::get_if<IrspTypedValue>(&val)) {
+                return &tv->raw; // value 字段现为带类型值
+            }
+            return nullptr;
         }
     }
     return nullptr;

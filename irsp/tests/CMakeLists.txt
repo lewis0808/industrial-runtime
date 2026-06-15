@@ -6,6 +6,11 @@ target_link_libraries(test_irsp1_codec PRIVATE irsp_codec)
 target_include_directories(test_irsp1_codec PRIVATE ${CMAKE_SOURCE_DIR}/core)
 add_test(NAME test_irsp1_codec COMMAND test_irsp1_codec)
 
+add_executable(test_msgpack_codec test_msgpack_codec.cpp)
+target_link_libraries(test_msgpack_codec PRIVATE irsp_codec)
+target_include_directories(test_msgpack_codec PRIVATE ${CMAKE_SOURCE_DIR}/core)
+add_test(NAME test_msgpack_codec COMMAND test_msgpack_codec)
+
 add_executable(test_topic test_topic.cpp)
 target_link_libraries(test_topic PRIVATE irsp_semantic)
 target_include_directories(test_topic PRIVATE ${CMAKE_SOURCE_DIR}/core)

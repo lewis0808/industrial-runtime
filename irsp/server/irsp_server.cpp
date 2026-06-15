@@ -8,6 +8,7 @@
 
 #include <libwebsockets.h>
 
+#include "codec/encoding.hpp"
 #include "codec/irsp1_codec.hpp"
 #include "common/event.hpp"
 #include "common/tag_value.hpp"
@@ -42,17 +43,18 @@ std::int64_t eventNs(const core::Event &e) {
         .count();
 }
 
-std::string encodePushTag(const TagRecord &rec) {
+// 推送帧的中立值（按各连接协商编码分别序列化）。
+IrspValue pushTagValue(const TagRecord &rec) {
     IrspMap m;
     m.entries.emplace_back(makeBulk("push"), makeBulk("tag"));
     m.entries.emplace_back(makeBulk("name"), makeBulk(rec.name));
     m.entries.emplace_back(makeBulk("type"), makeBulk(rec.type));
     m.entries.emplace_back(makeBulk("ts"), makeInteger(rec.ts_ns));
-    m.entries.emplace_back(makeBulk("value"), makeBulk(rec.value));
-    return Irsp1Codec::encode(m);
+    m.entries.emplace_back(makeBulk("value"), makeTypedValue(rec.type, rec.value));
+    return m;
 }
 
-std::string encodePushEvent(const core::Event &e) {
+IrspValue pushEventValue(const core::Event &e) {
     IrspMap m;
     m.entries.emplace_back(makeBulk("push"), makeBulk("event"));
     m.entries.emplace_back(makeBulk("source"), makeBulk(e.source));
@@ -60,7 +62,7 @@ std::string encodePushEvent(const core::Event &e) {
     m.entries.emplace_back(makeBulk("severity"), makeBulk(severityLower(e.severity)));
     m.entries.emplace_back(makeBulk("ts"), makeInteger(eventNs(e)));
     m.entries.emplace_back(makeBulk("message"), makeBulk(e.message));
-    return Irsp1Codec::encode(m);
+    return m;
 }
 
 bool isByeCommand(const IrspValue &request) {
@@ -112,27 +114,32 @@ void IrspServer::processFrame(Conn &conn, const std::string &frame) {
     if (frame.empty()) {
         return;
     }
+    // 按帧首字节嗅探编码（irsp1 / msgpack），容忍按连接混合的客户端。
+    const Encoding enc = sniffEncoding(frame);
     IrspValue request;
-    if (frame[0] == '*') {
-        // irsp1 编码帧（SDK 正常路径）。
-        auto dec = Irsp1Codec::decode(frame);
-        if (dec.status != Irsp1Codec::Status::Ok) {
-            conn.outbox.push_back(Irsp1Codec::encode(makeError("PROTOCOL_ERROR", "bad frame")));
-            conn.closeAfterWrite = true;
-            return;
-        }
-        request = std::move(dec.value);
-    } else {
-        // 非 '*' 开头：按 Redis 风格 inline 命令解析（调试用，如 wscat 直接敲 "HELLO 1"）。
+    if (enc == Encoding::Irsp1 && frame[0] != '*') {
+        // 非 '*' 文本帧：Redis 风格 inline 命令（调试用，如 wscat 直接敲 "HELLO 1"）。
         request = Irsp1Codec::decodeInline(frame);
         const auto *arr = std::get_if<IrspArray>(&request);
         if (arr != nullptr && arr->items.empty()) {
             return; // 空行忽略
         }
+    } else {
+        CodecDecode dec = decodeValue(enc, frame);
+        if (dec.status != CodecStatus::Ok) {
+            conn.outbox.push_back(encodeValue(enc, makeError("PROTOCOL_ERROR", "bad frame")));
+            conn.closeAfterWrite = true;
+            return;
+        }
+        request = std::move(dec.value);
+    }
+    // 握手前按客户端成帧方式临时定编码；HELLO 的 ENCODING 参数可在 handle() 内覆盖。
+    if (!conn.session.hello) {
+        conn.session.encoding = enc;
     }
     const bool bye = isByeCommand(request);
     IrspValue reply = dispatcher_.handle(conn.session, request);
-    conn.outbox.push_back(Irsp1Codec::encode(reply));
+    conn.outbox.push_back(encodeValue(conn.session.encoding, reply));
     if (bye) {
         conn.closeAfterWrite = true;
     }
@@ -238,11 +245,11 @@ void IrspServer::routeTag(const std::string &name) {
         if (!rec) {
             return;
         }
-        const std::string frame = encodePushTag(*rec);
+        const IrspValue push = pushTagValue(*rec);
         for (const auto id : ids) {
             auto it = conns_.find(id);
             if (it != conns_.end()) {
-                it->second->outbox.push_back(frame);
+                it->second->outbox.push_back(encodeValue(it->second->session.encoding, push));
             }
         }
     }
@@ -259,11 +266,11 @@ void IrspServer::onEvent(const core::Event &event) {
         if (ids.empty()) {
             return;
         }
-        const std::string frame = encodePushEvent(event);
+        const IrspValue push = pushEventValue(event);
         for (const auto id : ids) {
             auto it = conns_.find(id);
             if (it != conns_.end()) {
-                it->second->outbox.push_back(frame);
+                it->second->outbox.push_back(encodeValue(it->second->session.encoding, push));
             }
         }
     }

@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "codec/encoding.hpp"
 #include "codec/irsp_value.hpp"
 #include "semantic/tag_source.hpp"
 #include "semantic/tag_writer.hpp"
@@ -23,6 +24,7 @@ struct EventFilter {
 struct Session {
     std::uint64_t id{0};
     bool hello{false};
+    Encoding encoding{Encoding::Irsp1}; ///< HELLO 协商出的编码（用于回复/推送）
 };
 
 /// IRSP 语义引擎 + 订阅注册表。解析命令、产出回复、维护订阅。

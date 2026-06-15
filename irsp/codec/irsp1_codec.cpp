@@ -168,6 +168,13 @@ void Irsp1Codec::encode(const IrspValue &value, std::string &out) {
                 out += "\r\n";
                 out += v.data;
                 out += "\r\n";
+            } else if constexpr (std::is_same_v<T, IrspTypedValue>) {
+                // irsp1 不区分类型，值即一段 bulk（小端原始字节 / UTF-8），与 IrspBulk 同线格。
+                out += '$';
+                out += std::to_string(v.raw.size());
+                out += "\r\n";
+                out += v.raw;
+                out += "\r\n";
             } else if constexpr (std::is_same_v<T, IrspArray>) {
                 out += '*';
                 out += std::to_string(v.items.size());

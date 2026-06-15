@@ -31,11 +31,19 @@ struct IrspBulk {
     std::string data;
 };
 
+/// 带类型标签的值（TagValue.value）。raw 为 IRSP 标准字节（数值小端 / str 为 UTF-8）。
+/// irsp1 编码为一段 bulk（线格与 IrspBulk 等价）；msgpack 依 type 编码为原生 int/float/str。
+/// 见 irsp/doc/protocol/datatype.md §1 的类型标签集。
+struct IrspTypedValue {
+    std::string type; ///< "f64"/"i32"/"str"/"bool"... 或 "null"
+    std::string raw;  ///< 小端原始字节（数值）/ UTF-8（str）
+};
+
 struct IrspArray;
 struct IrspMap;
 
-using IrspValue =
-    std::variant<IrspNull, IrspSimple, IrspError, IrspInteger, IrspBulk, IrspArray, IrspMap>;
+using IrspValue = std::variant<IrspNull, IrspSimple, IrspError, IrspInteger, IrspBulk,
+                               IrspTypedValue, IrspArray, IrspMap>;
 
 struct IrspArray {
     std::vector<IrspValue> items;
@@ -54,6 +62,9 @@ struct IrspMap {
 }
 [[nodiscard]] inline IrspValue makeInteger(std::int64_t v) { return IrspInteger{v}; }
 [[nodiscard]] inline IrspValue makeBulk(std::string data) { return IrspBulk{std::move(data)}; }
+[[nodiscard]] inline IrspValue makeTypedValue(std::string type, std::string raw) {
+    return IrspTypedValue{std::move(type), std::move(raw)};
+}
 [[nodiscard]] inline IrspValue makeNull() { return IrspNull{}; }
 
 } // namespace irsp
