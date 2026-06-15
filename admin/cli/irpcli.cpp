@@ -21,9 +21,9 @@
 #include "admin_endpoint.hpp"
 
 #if defined(_WIN32)
+#define NOMINMAX // 避免 <windows.h> 的 max/min 宏破坏 std::max
 #include <windows.h>
 #else
-#include <cstring>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
