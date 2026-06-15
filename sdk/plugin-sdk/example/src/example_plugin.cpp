@@ -4,6 +4,7 @@
 //   收到写后模拟"写入设备成功"，把值原样回推为 Tag（设备回读）。
 
 #include <cstdint>
+#include <new>
 #include <string>
 #include <string_view>
 
@@ -81,7 +82,9 @@ IRPLUGIN_EXPORT IrPluginInfo getPluginInfo() {
 }
 
 // 第二参数为该插件配置文件完整路径（runtime 透传，本示例无需配置，忽略）。
-IRPLUGIN_EXPORT irplugin::IPlugin *createPlugin(const IrPluginHostApi *host,
-                                                const char * /*config_path*/) {
-    return new ExamplePlugin(host);
+// 用 makeInstance 把 IPlugin 封装进 C vtable 填入 out：成功返回 1，失败返回 0。
+// nothrow new 避免 bad_alloc 跨 DLL 边界逃逸（分配失败时 makeInstance 收到 null 返回 0）。
+IRPLUGIN_EXPORT int createPlugin(const IrPluginHostApi *host, const char * /*config_path*/,
+                                 IrPluginInstance *out) {
+    return irplugin::makeInstance(new (std::nothrow) ExamplePlugin(host), out);
 }

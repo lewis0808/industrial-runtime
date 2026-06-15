@@ -12,6 +12,7 @@
 #include <string>
 #include <thread>
 
+#include "admin_server.hpp"
 #include "config/config.hpp"
 #include "logger/logger.hpp"
 #include "plugin_host/plugin_host.hpp"
@@ -74,7 +75,7 @@ int main(int argc, char **argv) {
     // 装配设备插件与写回出口：写回按 topic 前缀路由到对应插件。
     core::PluginHost pluginHost(runtime);
     runtime.setWriteHandler([&pluginHost](const core::TagValue &t) { return pluginHost.write(t); });
-    core::PluginManager pluginManager(pluginHost.abi());
+    core::PluginManager pluginManager(pluginHost);
     // 自动发现：扫描可执行文件同级的 plugins/ 加载所有插件动态库；各插件的配置取自
     // 同级 config/<dll basename>.json（plugins 与 config 分目录）。设备配置不进主配置，
     // 宿主只把配置路径透传给插件，由插件自行解析（缺失则用内置默认）。
@@ -88,6 +89,11 @@ int main(int argc, char **argv) {
     const auto irspPort = static_cast<std::uint16_t>(config.get<int>("irsp.port", 9777));
     irsp::IrspServer irspServer(runtime, irspPort);
     irspServer.start();
+
+    // 本机控制面：admin 通道（Windows 命名管道 / POSIX AF_UNIX），运行期管理插件生命周期
+    // （PLUGIN LIST/UNLOAD/RELOAD），与 IRSP 数据面解耦、仅本机可达。
+    admin::AdminServer adminServer(pluginManager);
+    adminServer.start();
 
     // 示例：每秒采集一个心跳 Tag 并发布一次状态事件。
     runtime.scheduler().addPeriodicTask("heartbeat", std::chrono::seconds(1), [&runtime] {
@@ -104,6 +110,7 @@ int main(int argc, char **argv) {
     }
 
     IR_LOG_INFO("收到退出信号，正在停止...");
+    adminServer.stop();
     irspServer.stop();
     pluginManager.stopAll();
     runtime.stop();

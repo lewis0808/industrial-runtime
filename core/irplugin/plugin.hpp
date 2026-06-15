@@ -157,11 +157,43 @@ class Host {
     std::string writePrefix_;
 };
 
-/// 宿主侧用于解析导出函数的指针类型。
-/// createPlugin 第二参数为该插件配置文件的完整路径（UTF-8）。宿主按约定算出
+namespace detail {
+
+/// 生命周期蹦床：把 C vtable 调用转回 IPlugin 的虚函数。
+/// 关键：这些调用**全部停留在插件 DLL 内部**，故 IPlugin 的 C++ vtable 布局不再跨越 DLL 边界
+/// ——宿主只调 C 函数指针。这正是「任意语言/编译器写插件」得以成立的前提。
+inline int abiInit(void *self) { return static_cast<IPlugin *>(self)->init() ? 1 : 0; }
+inline int abiStart(void *self) { return static_cast<IPlugin *>(self)->start() ? 1 : 0; }
+inline int abiStop(void *self) { return static_cast<IPlugin *>(self)->stop() ? 1 : 0; }
+inline int abiDestroy(void *self) { return static_cast<IPlugin *>(self)->destroy() ? 1 : 0; }
+
+} // namespace detail
+
+/// 把已构造的 IPlugin 实例封装进 C vtable，供 createPlugin 填充 out 使用。
+/// 用法：`return irplugin::makeInstance(new (std::nothrow) MyPlugin(host), out);`
+/// plugin 或 out 为空均返回 0（失败）；plugin 非空而 out 为空时顺手 delete 以免泄漏。
+inline int makeInstance(IPlugin *plugin, IrPluginInstance *out) noexcept {
+    if (out == nullptr) {
+        delete plugin;
+        return 0;
+    }
+    if (plugin == nullptr) {
+        return 0;
+    }
+    out->self = plugin;
+    out->init = &detail::abiInit;
+    out->start = &detail::abiStart;
+    out->stop = &detail::abiStop;
+    out->destroy = &detail::abiDestroy;
+    return 1;
+}
+
+/// 宿主侧用于解析导出函数的指针类型（与 plugin_abi.h 的 C 类型同一）。
+/// createPlugin(host, config_path, out)：成功返回 1 并填充 *out（见 makeInstance），失败返回 0。
+/// config_path 为该插件配置文件的完整路径（UTF-8）。宿主按约定算出
 /// `<exe>/config/<dll basename>.json` 传入（仅传路径，宿主不读取/不解析内容）；
 /// 插件自行读取并按需热扫描该文件，文件不存在时应回退内置默认值。无需配置的插件忽略它。
-using GetPluginInfoFn = IrPluginInfo (*)();
-using CreatePluginFn = IPlugin *(*)(const IrPluginHostApi *, const char *config_path);
+using GetPluginInfoFn = IrPluginGetInfoFn;
+using CreatePluginFn = IrPluginCreateFn;
 
 } // namespace irplugin

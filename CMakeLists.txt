@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
-project(IndustrialRuntime VERSION 0.1.0 LANGUAGES CXX)
+project(IndustrialRuntime VERSION 0.2.0 LANGUAGES CXX)
 
 # 发版预发布标记：留空 = 正式版；填 beta.1 / rc.1 等 = 预发布。
 # 合并到 main 时，release workflow 据此组合 tag（vX.Y.Z 或 vX.Y.Z-beta.1）并标记 GitHub prerelease。
-set(IR_VERSION_PRERELEASE "beta")
+set(IR_VERSION_PRERELEASE "")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -37,8 +37,10 @@ endif()
 # 编出的动态库放进运行时同级 plugins/ 即可。
 add_subdirectory(core)
 add_subdirectory(irsp)
+add_subdirectory(admin) # 本机控制面通道（依赖 core，独立于 irsp）
 
-# 可执行入口：组合 core 运行时 + IRSP WebSocket 服务（在 core/irsp 之后定义）。
+# 可执行入口：组合 core 运行时 + IRSP 数据面 + admin 控制面（在各模块之后定义）。
 add_executable(IndustrialRuntime core/main.cpp)
 target_link_libraries(IndustrialRuntime
-    PRIVATE core_runtime_engine core_logger core_plugin_host core_plugin_manager irsp_server)
+    PRIVATE core_runtime_engine core_logger core_plugin_host core_plugin_manager
+            irsp_server admin_server)

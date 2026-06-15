@@ -159,9 +159,12 @@ public:
 ```markdown
 extern "C"
 {
-    PluginInfo getPluginInfo();
+    IrPluginInfo getPluginInfo();
 
-    IPlugin* createPlugin();
+    // 生命周期为纯 C 函数指针 vtable，不跨 DLL 传 C++ 对象/vtable：
+    // createPlugin 填充 out（self + init/start/stop/destroy），成功返回 1。
+    // C++ 作者用 irplugin::makeInstance(new MyPlugin(host), out) 一行封装。
+    int createPlugin(const IrPluginHostApi* host, const char* config_path, IrPluginInstance* out);
 }
 ```
 禁止：

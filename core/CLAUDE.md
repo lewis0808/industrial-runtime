@@ -80,15 +80,23 @@ core/
 IrPluginEvent/IrPluginStreamFrame`（纯 C 结构）转换为 core 类型后转发。这是宿主侧的封送层。
 
 ### plugin_manager/
-`PluginManager(const IrPluginHostApi*)` —— 跨平台加载插件 DLL（Windows `LoadLibraryEx` +
-`LOAD_WITH_ALTERED_SEARCH_PATH` 以解析插件同目录的依赖库 / POSIX `dlopen`）。
-`load(path, configPath)` 解析 `getPluginInfo`/`createPlugin`、校验 ABI 版本、
-`createPlugin(host, configPath)` 并 `init()`——**配置文件路径原样传给插件**，宿主不读取内容
-（设备配置不进主配置）。`loadDirectory(pluginDir, configDir)` 扫描目录下所有动态库
-（`*.dll`/`*.so`/`*.dylib`）逐个加载，配置路径取 `configDir/<dll basename>.json`，供 runtime
-**自动发现**：`main` 扫描可执行文件同级的 `plugins/`（插件）与 `config/`（配置），两目录分离，
-无需在主配置里列插件。非插件动态库（无导出符号）静默跳过。`startAll()`/`stopAll()`；
-析构时按逆序 `stop -> destroy -> 卸载库`。`destroy()` 在插件自身堆释放对象。
+`PluginManager(PluginHost&)` —— 跨平台加载插件 DLL（Windows `LoadLibraryEx` +
+`LOAD_WITH_ALTERED_SEARCH_PATH` 以解析插件同目录的依赖库 / POSIX `dlopen`）。持 `PluginHost&`
+（取 `abi()` 给插件，并经其管理写回归属/排空）。`load(path, configPath)` 解析
+`getPluginInfo`/`createPlugin`、校验 ABI 版本区间、`createPlugin(host, configPath, &instance)`
+填充 **C 函数指针 vtable** `IrPluginInstance`（校验 `self` 与四个函数指针非空）并 `init()`——
+**配置文件路径原样传给插件**，宿主不读取内容（设备配置不进主配置）。`loadDirectory(pluginDir,
+configDir)` 扫描目录下所有动态库（`*.dll`/`*.so`/`*.dylib`）逐个加载，配置路径取
+`configDir/<dll basename>.json`，供 runtime **自动发现**：`main` 扫描可执行文件同级的
+`plugins/`（插件）与 `config/`（配置），两目录分离，无需在主配置里列插件。非插件动态库
+（无导出符号）静默跳过。`startAll()`/`stopAll()`；析构时按逆序 `撤销写回+排空 -> stop ->
+destroy -> 卸载库`，经 `instance` 的 C 函数指针调用，`destroy(self)` 在插件自身堆释放对象。
+生命周期为纯 C vtable（宿主不跨 DLL 调 C++ 虚函数），宿主与插件无需同一 C++ ABI。
+**运行期热卸载**：`unload(id)/reload(id)/list()` 支持按 id 卸载/重载；卸载先经 `PluginHost`
+撤销该插件写回归属（owner）并**排空在途 `write()` 调用**（引用计数），再 `stop/destroy/卸库`，
+杜绝写回路径 use-after-free。内部 `mutex` 串行化全部管理操作，**线程安全**，由**独立 admin 通道**
+（顶层 `admin/` 模块，命名管道/AF_UNIX，`PLUGIN LIST/UNLOAD/RELOAD`）在运行期触发——控制面与
+IRSP 数据面解耦（见根 README §7）。
 
 ## 数据流
 
