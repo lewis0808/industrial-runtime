@@ -1,7 +1,10 @@
 #include "event_bus/event_bus.hpp"
 
 #include <chrono>
+#include <exception>
 #include <utility>
+
+#include "logger/logger.hpp"
 
 namespace core {
 
@@ -96,7 +99,17 @@ void EventBus::deliver(const Event &event) {
         if (!sub.filter.category.empty() && sub.filter.category != event.category) {
             continue;
         }
-        sub.handler(event);
+        // 订阅者回调异常不得逃逸派发线程（否则 std::terminate）：
+        // 逐 handler 隔离，单订阅者失败仅记日志，不影响后续订阅者与后续事件派发。
+        try {
+            sub.handler(event);
+        } catch (const std::exception &ex) {
+            IR_LOG_ERROR("event_bus: handler (sub={}) threw on event [{}/{}]: {}", sub.id,
+                         event.source, event.category, ex.what());
+        } catch (...) {
+            IR_LOG_ERROR("event_bus: handler (sub={}) threw unknown exception on event [{}/{}]",
+                         sub.id, event.source, event.category);
+        }
     }
 }
 

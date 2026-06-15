@@ -24,7 +24,7 @@ target_link_libraries(core_tag_engine PUBLIC core_common Threads::Threads)
 
 # ---- EventBus ----
 add_library(core_event_bus STATIC event_bus/event_bus.cpp)
-target_link_libraries(core_event_bus PUBLIC core_common Threads::Threads)
+target_link_libraries(core_event_bus PUBLIC core_common Threads::Threads PRIVATE core_logger)
 
 # ---- MemoryStore ----
 add_library(core_memory_store STATIC memory_store/memory_store.cpp)
