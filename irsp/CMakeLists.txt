@@ -4,8 +4,8 @@
 # 规格见本目录文档（README.md 等）。IRSP 单向依赖 core 只读接口；core 不依赖 irsp。
 # ============================================================
 
-# ---- irsp1 编解码 ----
-add_library(irsp_codec STATIC codec/irsp1_codec.cpp)
+# ---- 编解码：irsp1（V1）+ msgpack（V2）----
+add_library(irsp_codec STATIC codec/irsp1_codec.cpp codec/msgpack_codec.cpp)
 target_include_directories(irsp_codec PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_features(irsp_codec PUBLIC cxx_std_20)
 

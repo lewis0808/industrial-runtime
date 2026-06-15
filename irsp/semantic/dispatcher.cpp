@@ -42,7 +42,7 @@ IrspValue tagToMap(const TagRecord &rec) {
     m.entries.emplace_back(makeBulk("name"), makeBulk(rec.name));
     m.entries.emplace_back(makeBulk("type"), makeBulk(rec.type));
     m.entries.emplace_back(makeBulk("ts"), makeInteger(rec.ts_ns));
-    m.entries.emplace_back(makeBulk("value"), makeBulk(rec.value));
+    m.entries.emplace_back(makeBulk("value"), makeTypedValue(rec.type, rec.value));
     return m;
 }
 
@@ -79,11 +79,22 @@ IrspValue Dispatcher::handle(Session &session, const IrspValue &request) {
         if (arg(0) != "1") {
             return makeError("UNSUPPORTED_VERSION", "only version 1 is supported");
         }
+        // 可选编码协商：HELLO <version> ENCODING <irsp1|msgpack>。
+        // 缺省沿用 session.encoding（由 server 按客户端成帧方式预置，默认 irsp1）。
+        if (argc >= 3 && toUpper(arg(1)) == "ENCODING") {
+            Encoding enc{};
+            if (!parseEncoding(arg(2), enc)) {
+                return makeError("UNSUPPORTED_ENCODING", "unknown encoding");
+            }
+            session.encoding = enc;
+        }
         session.hello = true;
         IrspMap m;
         m.entries.emplace_back(makeBulk("server"), makeBulk("industrial-runtime/1.0.0"));
         m.entries.emplace_back(makeBulk("version"), makeBulk("1"));
-        m.entries.emplace_back(makeBulk("encoding"), makeBulk("irsp1"));
+        m.entries.emplace_back(makeBulk("encoding"),
+                               makeBulk(std::string(encodingName(session.encoding))));
+        m.entries.emplace_back(makeBulk("encodings"), makeBulk("irsp1,msgpack"));
         m.entries.emplace_back(makeBulk("transports"), makeBulk("websocket"));
         m.entries.emplace_back(makeBulk("capabilities"), makeBulk("tag,event"));
         return m;

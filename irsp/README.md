@@ -16,7 +16,7 @@ IRSP 是 Industrial Runtime 的**对外统一访问协议**（定位类比 Redis
 | [doc/transport/websocket.md](doc/transport/websocket.md) | V1 传输：WebSocket |
 | [doc/transport/tcp.md](doc/transport/tcp.md) | V3 传输：TCP/TLV（预留） |
 | [doc/encoding/irsp1.md](doc/encoding/irsp1.md) | V1 编码：RESP 风格 + 二进制 bulk |
-| [doc/encoding/msgpack.md](doc/encoding/msgpack.md) | V2 编码：MessagePack（预留） |
+| [doc/encoding/msgpack.md](doc/encoding/msgpack.md) | V2 编码：MessagePack（已实现，HELLO 协商） |
 | [doc/examples/session.md](doc/examples/session.md) | 完整会话示例 |
 
 ## 分层与版本演进
@@ -41,7 +41,7 @@ IRSP 是 Industrial Runtime 的**对外统一访问协议**（定位类比 Redis
 
 ## 设计原则（已确认）
 
-- ✓ V1 传输 **WebSocket**；编码 **IRSP1**；**MessagePack 预留**（V2）。
+- ✓ V1 传输 **WebSocket**；编码 **IRSP1**；**MessagePack 已实现**（V2，`HELLO ... ENCODING msgpack` 协商）。
 - ✓ **HELLO 强制**：连接 → HELLO →（未来 AUTH）→ 正常通讯。
 - ✓ **Core 不依赖 IRSP**；IRSP 单向依赖 core 只读接口。**插件不感知 IRSP**。
 - ✓ **SDK 由 IRSP 定义生成**：命令/类型定义需精确到可（未来）机读自动产出多语言客户端。
