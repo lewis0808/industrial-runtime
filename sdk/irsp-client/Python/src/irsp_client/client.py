@@ -12,7 +12,7 @@ from typing import Any, Callable, Deque, Dict, List, Optional
 
 import websockets
 
-from .irsp1 import IrspError, as_str, decode, decode_value, encode_request
+from .irsp1 import IrspError, as_str, decode_value
 
 
 @dataclass
@@ -48,8 +48,18 @@ class IrspClient:
             ...
     """
 
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, encoding: str = "irsp1") -> None:
+        if encoding not in ("irsp1", "msgpack"):
+            raise ValueError(f"未知编码: {encoding}（仅支持 irsp1 / msgpack）")
         self.url = url
+        self.encoding = encoding
+        # 编解码选择：两模块对外接口一致（encode_request / decode）。
+        if encoding == "msgpack":
+            from . import msgpack_codec as _codec
+        else:
+            from . import irsp1 as _codec
+        self._encode_request = _codec.encode_request
+        self._decode = _codec.decode
         self.server: Dict[str, Optional[str]] = {}
         self._ws: Any = None
         self._pending: Deque["asyncio.Future"] = collections.deque()
@@ -71,7 +81,10 @@ class IrspClient:
     async def connect(self) -> "IrspClient":
         self._ws = await websockets.connect(self.url, subprotocols=["irsp"])
         self._reader = asyncio.create_task(self._read_loop())
-        hello = await self._send(["HELLO", "1"])
+        hello_parts = ["HELLO", "1"]
+        if self.encoding == "msgpack":
+            hello_parts += ["ENCODING", "msgpack"]
+        hello = await self._send(hello_parts)
         self.server = {k: as_str(v) for k, v in hello.items()}
         return self
 
@@ -96,7 +109,7 @@ class IrspClient:
 
     def _on_frame(self, data: bytes) -> None:
         try:
-            value = decode(data)
+            value = self._decode(data)
         except Exception:
             return
         if _is_push(value):
@@ -126,17 +139,22 @@ class IrspClient:
             raise IrspError("CLOSED", "未连接")
         fut: "asyncio.Future" = asyncio.get_running_loop().create_future()
         self._pending.append(fut)
-        await self._ws.send(encode_request(parts))
+        await self._ws.send(self._encode_request(parts))
         return await fut
 
     def _decode_tag(self, m: dict) -> TagValue:
         type_tag = as_str(m.get("type")) or "null"
         raw = m.get("value")
+        # irsp1：value 是小端字节，需按 type 解码；msgpack：已是原生值，直接用。
+        if isinstance(raw, (bytes, bytearray)):
+            value = decode_value(type_tag, bytes(raw))
+        else:
+            value = raw
         tag = TagValue(
             name=as_str(m.get("name")) or "",
             type=type_tag,
             ts=int(m.get("ts") or 0),
-            value=decode_value(type_tag, raw if isinstance(raw, (bytes, bytearray)) else None),
+            value=value,
         )
         q = as_str(m.get("quality"))
         if q is not None:
