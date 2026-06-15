@@ -52,9 +52,10 @@ target_link_libraries(core_runtime_engine
 add_library(core_plugin_host STATIC plugin_host/plugin_host.cpp)
 target_link_libraries(core_plugin_host PUBLIC core_common core_runtime_engine)
 
-# ---- PluginManager（跨平台 DLL 加载 + 生命周期） ----
+# ---- PluginManager（跨平台 DLL 加载 + 生命周期 + 按 id 热卸载/reload） ----
+# 依赖 core_plugin_host：卸载需经其撤销写回归属并排空在途调用（头文件引用 PluginHost）。
 add_library(core_plugin_manager STATIC plugin_manager/plugin_manager.cpp)
-target_link_libraries(core_plugin_manager PUBLIC core_common PRIVATE core_logger)
+target_link_libraries(core_plugin_manager PUBLIC core_common core_plugin_host PRIVATE core_logger)
 if(NOT WIN32)
     target_link_libraries(core_plugin_manager PRIVATE ${CMAKE_DL_LIBS})
 endif()

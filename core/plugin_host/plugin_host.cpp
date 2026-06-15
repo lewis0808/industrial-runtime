@@ -2,7 +2,12 @@
 
 #include <chrono>
 #include <cstdint>
+#include <exception>
+#include <memory>
+#include <mutex>
+#include <shared_mutex>
 #include <string>
+#include <thread>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -10,6 +15,7 @@
 #include "common/event.hpp"
 #include "common/stream.hpp"
 #include "common/tag_value.hpp"
+#include "logger/logger.hpp"
 
 namespace core {
 
@@ -143,74 +149,200 @@ StreamType toStreamType(int32_t t) {
 
 } // namespace
 
-PluginHost::PluginHost(RuntimeApi &api) noexcept : api_(&api) {
+PluginHost::PluginHost(RuntimeApi &api) : api_(&api) {
     abi_.ctx = this;
     abi_.push_tag = &PluginHost::pushTagThunk;
     abi_.push_event = &PluginHost::pushEventThunk;
     abi_.push_stream = &PluginHost::pushStreamThunk;
     abi_.register_writer = &PluginHost::registerWriterThunk;
+    // owner 0 = 无归属：经 abi() 直接注册（运行时自身/测试）的写回挂于此，永不撤销。
+    owners_.emplace(0, std::make_shared<OwnerState>());
 }
 
-int PluginHost::pushTagThunk(void *ctx, const IrPluginTagValue *tag) {
+std::shared_ptr<PluginHost::OwnerState> PluginHost::ownerStateLocked(OwnerId owner) const {
+    auto it = owners_.find(owner);
+    return it == owners_.end() ? nullptr : it->second;
+}
+
+PluginHost::OwnerId PluginHost::createOwner() {
+    std::unique_lock lock(writersMutex_);
+    const OwnerId id = nextOwner_++;
+    owners_.emplace(id, std::make_shared<OwnerState>());
+    return id;
+}
+
+void PluginHost::setActiveOwner(OwnerId owner) noexcept {
+    std::unique_lock lock(writersMutex_);
+    activeOwner_ = owner;
+}
+
+void PluginHost::retireOwner(OwnerId owner) {
+    if (owner == 0) {
+        return; // 无归属项不可撤销
+    }
+    std::unique_lock lock(writersMutex_);
+    auto state = ownerStateLocked(owner);
+    if (state == nullptr) {
+        return;
+    }
+    // 移除该 owner 的全部写回：此后 write() 在共享锁下选不到它，不会再自增其 inflight。
+    std::erase_if(writers_, [&](const WriteReg &reg) { return reg.owner == state; });
+}
+
+void PluginHost::waitQuiescent(OwnerId owner) const {
+    std::shared_ptr<OwnerState> state;
+    {
+        std::shared_lock lock(writersMutex_);
+        state = ownerStateLocked(owner);
+    }
+    if (state == nullptr) {
+        return;
+    }
+    // retireOwner 已在独占锁下摘除其写回，故不会有新的自增；等待已在途的调用自减归零。
+    // 卸载是低频管理操作，让出 CPU 轮询即可。
+    while (state->inflight.load(std::memory_order_acquire) > 0) {
+        std::this_thread::yield();
+    }
+}
+
+void PluginHost::removeOwner(OwnerId owner) noexcept {
+    if (owner == 0) {
+        return;
+    }
+    std::unique_lock lock(writersMutex_);
+    owners_.erase(owner);
+}
+
+int PluginHost::pushTagThunk(void *ctx, const IrPluginTagValue *tag) noexcept {
     if (ctx == nullptr || tag == nullptr) {
         return 0;
     }
     auto *self = static_cast<PluginHost *>(ctx);
-    TagValue tv;
-    tv.name = toString(tag->name);
-    tv.value = toVariant(tag->value);
-    tv.type = dataTypeOf(tv.value);
-    tv.timestamp = toTimestamp(tag->timestamp_ns);
-    return self->api_->pushTag(tv) ? 1 : 0;
+    try {
+        TagValue tv;
+        tv.name = toString(tag->name);
+        tv.value = toVariant(tag->value);
+        tv.type = dataTypeOf(tv.value);
+        tv.timestamp = toTimestamp(tag->timestamp_ns);
+        return self->api_->pushTag(tv) ? 1 : 0;
+    } catch (...) {
+        // 宿主侧异常不得逃逸回插件（跨 C-ABI 即 UB），按丢弃处理。
+        return 0;
+    }
 }
 
-int PluginHost::pushEventThunk(void *ctx, const IrPluginEvent *event) {
+int PluginHost::pushEventThunk(void *ctx, const IrPluginEvent *event) noexcept {
     if (ctx == nullptr || event == nullptr) {
         return 0;
     }
     auto *self = static_cast<PluginHost *>(ctx);
-    Event ev{toString(event->source), toString(event->category), toString(event->message),
-             toSeverity(event->severity), toTimestamp(event->timestamp_ns)};
-    return self->api_->pushEvent(ev) ? 1 : 0;
+    try {
+        Event ev{toString(event->source), toString(event->category), toString(event->message),
+                 toSeverity(event->severity), toTimestamp(event->timestamp_ns)};
+        return self->api_->pushEvent(ev) ? 1 : 0;
+    } catch (...) {
+        return 0;
+    }
 }
 
-int PluginHost::pushStreamThunk(void *ctx, const IrPluginStreamFrame *frame) {
+int PluginHost::pushStreamThunk(void *ctx, const IrPluginStreamFrame *frame) noexcept {
     if (ctx == nullptr || frame == nullptr) {
         return 0;
     }
     auto *self = static_cast<PluginHost *>(ctx);
-    std::vector<std::uint8_t> payload;
-    if (frame->payload != nullptr && frame->payload_len > 0) {
-        payload.assign(frame->payload, frame->payload + frame->payload_len);
+    try {
+        std::vector<std::uint8_t> payload;
+        if (frame->payload != nullptr && frame->payload_len > 0) {
+            payload.assign(frame->payload, frame->payload + frame->payload_len);
+        }
+        StreamFrame sf{toString(frame->source), toStreamType(frame->type), std::move(payload),
+                       toTimestamp(frame->timestamp_ns)};
+        return self->api_->pushStream(sf) ? 1 : 0;
+    } catch (...) {
+        return 0;
     }
-    StreamFrame sf{toString(frame->source), toStreamType(frame->type), std::move(payload),
-                   toTimestamp(frame->timestamp_ns)};
-    return self->api_->pushStream(sf) ? 1 : 0;
 }
 
 void PluginHost::registerWriterThunk(void *ctx, const char *prefix, void *pluginCtx,
-                                     IrPluginWriteFn handler) {
+                                     IrPluginWriteFn handler) noexcept {
     if (ctx == nullptr || prefix == nullptr || handler == nullptr) {
         return;
     }
     auto *self = static_cast<PluginHost *>(ctx);
-    self->writers_.push_back(WriteReg{std::string(prefix), pluginCtx, handler});
+    try {
+        std::unique_lock lock(self->writersMutex_);
+        // 同前缀冲突告警：完全相同的 prefix 无法区分归属，最长前缀相同时以先注册者为准。
+        // （`a/` 与 `a/b/` 属正常分层，不在此列。）
+        for (const auto &reg : self->writers_) {
+            if (reg.prefix == prefix) {
+                IR_LOG_WARN("写回前缀冲突：'{}' 已被注册，新处理器将被忽略（以先注册者为准）",
+                            prefix);
+                return;
+            }
+        }
+        // 归于当前 active owner（PluginManager 在调用插件 init/start 期间设定）；其外注册
+        // 归于 owner 0（无归属，永不撤销）。owner 状态在加载时已建，正常不会缺失。
+        auto state = self->ownerStateLocked(self->activeOwner_);
+        if (state == nullptr) {
+            state = self->owners_[0];
+        }
+        self->writers_.push_back(WriteReg{std::string(prefix), pluginCtx, handler, std::move(state)});
+    } catch (...) {
+        // 注册期内存不足等：放弃该注册，不让异常逃逸回插件。
+        IR_LOG_ERROR("插件写回注册失败（前缀 {}）：宿主侧异常已拦截", prefix);
+    }
 }
 
 bool PluginHost::write(const TagValue &tag) {
-    for (const auto &reg : writers_) {
-        // 按 topic 前缀归属：首个匹配前缀的插件负责。
-        if (tag.name.size() >= reg.prefix.size() &&
-            tag.name.compare(0, reg.prefix.size(), reg.prefix) == 0) {
-            IrPluginTagValue c{};
-            c.name = {tag.name.data(), tag.name.size()};
-            c.timestamp_ns = fromTimestamp(tag.timestamp);
-            std::string strHolder;
-            fromVariant(c.value, tag.value, strHolder);
-            return reg.handler != nullptr && reg.handler(reg.pluginCtx, &c) > 0;
+    // 锁内只选出最长前缀匹配的处理器、拷出并**自增其归属在途计数**，出锁后再调用插件代码——
+    // 不持锁执行外部代码（避免长持锁 / 潜在死锁）。inflight 在锁内自增是热卸载安全的关键：
+    // retireOwner 在独占锁下摘除写回，与本处选取互斥，故选中即说明 owner 未被卸载，自增的
+    // 计数令 waitQuiescent 等到本次调用结束才放行 destroy/卸库。
+    void *pluginCtx = nullptr;
+    IrPluginWriteFn handler = nullptr;
+    std::shared_ptr<OwnerState> owner;
+    std::size_t bestLen = 0;
+    bool matched = false;
+    {
+        std::shared_lock lock(writersMutex_);
+        for (const auto &reg : writers_) {
+            if (reg.handler == nullptr || tag.name.size() < reg.prefix.size() ||
+                tag.name.compare(0, reg.prefix.size(), reg.prefix) != 0) {
+                continue;
+            }
+            // 最长前缀胜出；长度相同（同前缀，注册时已去重）保留先注册者。
+            if (!matched || reg.prefix.size() > bestLen) {
+                bestLen = reg.prefix.size();
+                pluginCtx = reg.pluginCtx;
+                handler = reg.handler;
+                owner = reg.owner;
+                matched = true;
+            }
+        }
+        if (matched) {
+            owner->inflight.fetch_add(1, std::memory_order_acq_rel);
         }
     }
-    return false;
+    if (!matched) {
+        return false;
+    }
+
+    IrPluginTagValue c{};
+    c.name = {tag.name.data(), tag.name.size()};
+    c.timestamp_ns = fromTimestamp(tag.timestamp);
+    std::string strHolder;
+    fromVariant(c.value, tag.value, strHolder);
+    // 写回处理器是插件代码，经 C-ABI 调用，异常逃逸即 UB，宿主侧拦截按未受理处理。
+    bool accepted = false;
+    try {
+        accepted = handler(pluginCtx, &c) > 0;
+    } catch (const std::exception &e) {
+        IR_LOG_ERROR("插件写回处理器抛出异常：{}", e.what());
+    } catch (...) {
+        IR_LOG_ERROR("插件写回处理器抛出未知异常");
+    }
+    owner->inflight.fetch_sub(1, std::memory_order_acq_rel);
+    return accepted;
 }
 
 } // namespace core

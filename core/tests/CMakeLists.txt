@@ -14,6 +14,8 @@ ir_add_test(test_event_bus    core_event_bus)
 ir_add_test(test_memory_store core_memory_store)
 ir_add_test(test_config       core_config)
 ir_add_test(test_scheduler    core_scheduler)
+ir_add_test(test_plugin_host  core_plugin_host)
 
 # 注：插件加载 / 写回 / S7 的端到端测试随设备插件移出本仓库（插件改为独立工程开发）。
 # 内核侧插件加载能力（plugin_host / plugin_manager）仍在，由独立插件工程的集成测试覆盖。
+# test_plugin_host 仅覆盖宿主封送/写回路由与跨 C-ABI 边界的异常隔离（无需真实 DLL）。

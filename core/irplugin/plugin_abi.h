@@ -18,9 +18,16 @@
 extern "C" {
 #endif
 
-/* ABI 版本。宿主接受 <= 自身版本的插件（结构体仅末尾追加，向后兼容）。
- * v2 起 IrPluginHostApi 追加 register_writer（写回）。 */
-#define IRPLUGIN_ABI_VERSION 2u
+/* ABI 版本。宿主接受 [IRPLUGIN_ABI_MIN_VERSION, IRPLUGIN_ABI_VERSION] 区间内的插件。
+ * 结构体（IrPluginHostApi 等）仅末尾追加字段，旧插件只读已知前缀，向后兼容。
+ * v2 起 IrPluginHostApi 追加 register_writer（写回）。
+ * v3 起生命周期改为 C 函数指针 vtable（IrPluginInstance）：createPlugin 不再返回 C++
+ * 对象，而是填充 out 参数。这是破坏性变更，故下方设最低支持版本拒绝更早的插件。 */
+#define IRPLUGIN_ABI_VERSION 3u
+
+/* 宿主可加载的最低插件 ABI 版本。低于此版本的 createPlugin 签名不兼容（v2 返回 C++
+ * 对象指针），强行调用即 UB，故直接拒绝。 */
+#define IRPLUGIN_ABI_MIN_VERSION 3u
 
 /* 数据类型。取值顺序与 core::DataType 严格一致，便于 1:1 映射。 */
 typedef enum IrPluginDataType {
@@ -135,6 +142,38 @@ typedef struct IrPluginInfo {
     const char *name;
     const char *version;
 } IrPluginInfo;
+
+/*
+ * 插件实例：C 函数指针 vtable + 不透明实例指针 self。
+ *
+ * 这是插件「生命周期」的唯一边界。全部为 C 函数指针，不依赖任何 C++ ABI 或 vtable 布局，
+ * 故插件可用任意语言/编译器实现——只需按 C 调用约定填好下列指针即可。
+ *
+ * 所有权：宿主持有本结构体（POD，按值保存）；self 由插件分配，宿主在 destroy 时令插件释放。
+ *         本结构体的函数指针指向插件 DLL 内的代码，在 destroy + 卸载库前始终有效。
+ * 调用约定：宿主以 self 为首参调用各函数；init/start/stop/destroy 返回 1=成功 0=失败。
+ * 顺序：createPlugin 填充本结构 -> init -> start -> ... -> stop -> destroy。
+ *       destroy 之后宿主不再触碰 self，并随即卸载动态库。
+ * 健壮性：插件必须填满全部四个函数指针；宿主发现任一为空即视为加载失败。
+ */
+typedef struct IrPluginInstance {
+    void *self;
+    int (*init)(void *self);
+    int (*start)(void *self);
+    int (*stop)(void *self);
+    int (*destroy)(void *self);
+} IrPluginInstance;
+
+/*
+ * 生命周期入口函数类型（即导出符号 getPluginInfo / createPlugin 的签名）。
+ * 任意语言实现插件时，只需导出符合下列两个签名的 C 函数：
+ *   - getPluginInfo(): 返回插件元信息（含 abi_version）。
+ *   - createPlugin(host, config_path, out): 成功返回 1 并填充 *out，失败返回 0（*out 不变）。
+ *     host 在插件存活期间有效；config_path 为该插件配置文件的完整路径（宿主透传，不读取内容）。
+ */
+typedef IrPluginInfo (*IrPluginGetInfoFn)(void);
+typedef int (*IrPluginCreateFn)(const IrPluginHostApi *host, const char *config_path,
+                                IrPluginInstance *out);
 
 /* 导出符号名（宿主用 dlsym/GetProcAddress 解析）。 */
 #define IRPLUGIN_SYM_GET_PLUGIN_INFO "getPluginInfo"

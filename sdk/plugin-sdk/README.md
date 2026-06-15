@@ -3,10 +3,14 @@
 面向 **Industrial Runtime** 的设备插件 SDK。**纯头文件、零外部依赖、不引用 runtime 内部**——
 插件只通过稳定的 **C ABI** 与 runtime 通信，用任意工具链在**独立项目**里开发。
 
-- `example/irplugin/plugin_abi.h` —— 纯 C ABI 契约（宿主 ↔ 插件唯一二进制边界）。
-- `example/irplugin/plugin.hpp` —— C++ 封装：`IPlugin` 接口 + `Host`（pushTag/pushEvent/pushStream/onWrite）。
+- `example/irplugin/plugin_abi.h` —— 纯 C ABI 契约（宿主 ↔ 插件唯一二进制边界），含生命周期
+  C 函数指针 vtable `IrPluginInstance`。
+- `example/irplugin/plugin.hpp` —— C++ 封装：`IPlugin` 接口 + `Host`（pushTag/pushEvent/pushStream/onWrite）
+  + `makeInstance`（把 `IPlugin` 封装进 C vtable）。
 
-> 当前 ABI：`IRPLUGIN_ABI_VERSION = 2`（runtime 接受版本 `<=` 自身的插件）。
+> 当前 ABI：`IRPLUGIN_ABI_VERSION = 3`（runtime 接受版本在 `[3, 3]` 区间的插件）。
+> **v3 起生命周期改为纯 C 函数指针 vtable**：`createPlugin` 不再返回 C++ 对象，故宿主与插件
+> **无需同一套 C++ ABI**——插件可用任意语言/编译器实现（C++ 作者用下方 `makeInstance` 一行封装即可）。
 
 ---
 
@@ -73,11 +77,17 @@ class MyPlugin final : public irplugin::IPlugin {
 IRPLUGIN_EXPORT IrPluginInfo getPluginInfo() {
     return IrPluginInfo{IRPLUGIN_ABI_VERSION, "my", "My Plugin", "1.0.0"};
 }
-// 第二参数为该插件配置文件完整路径（runtime 透传，无需配置可忽略）。
-IRPLUGIN_EXPORT irplugin::IPlugin *createPlugin(const IrPluginHostApi *host, const char *config_path) {
-    return new MyPlugin(host);
+// createPlugin(host, config_path, out)：把插件封进 C vtable 填入 out，成功返回 1。
+// config_path 为该插件配置文件完整路径（runtime 透传，无需配置可忽略）。
+IRPLUGIN_EXPORT int createPlugin(const IrPluginHostApi *host, const char *config_path,
+                                 IrPluginInstance *out) {
+    return irplugin::makeInstance(new (std::nothrow) MyPlugin(host), out);
 }
 ```
+
+> 用任意语言写插件时无需 `IPlugin`/`makeInstance`：只要导出 `getPluginInfo` 与 `createPlugin`，
+> 在 `createPlugin` 里自行填好 `IrPluginInstance` 的 `self` 与四个 C 函数指针即可（见
+> `plugin_abi.h` 中 `IrPluginInstance` 注释）。
 
 ---
 
@@ -104,9 +114,11 @@ IRPLUGIN_EXPORT irplugin::IPlugin *createPlugin(const IrPluginHostApi *host, con
 
 ## 约定
 
-- 跨 DLL 边界**只走 C ABI**：不跨边界传 STL 对象 / 抛异常 / 导出 C++ 类。
+- 跨 DLL 边界**只走 C ABI**：不跨边界传 STL 对象 / 抛异常 / 导出 C++ 类；**生命周期亦为纯 C
+  函数指针 vtable（`IrPluginInstance`）**，宿主与插件无需同一 C++ ABI。
 - 动态库**文件名任意**；插件 id / 名来自 `getPluginInfo`。
-- `createPlugin(host, config_path)` 第二参数是 runtime 透传的**配置文件完整路径**（runtime 不读取内容，由插件自行解析、按需热扫描）。
+- `createPlugin(host, config_path, out)`：第二参是 runtime 透传的**配置文件完整路径**（runtime
+  不读取内容，由插件自行解析、按需热扫描）；第三参 `out` 由插件填好实例 vtable，成功返回 1。
 - 升级 SDK：覆盖这两个头，核对 `IRPLUGIN_ABI_VERSION` 与 `createPlugin` 签名是否变化。
 
 ## 示例
