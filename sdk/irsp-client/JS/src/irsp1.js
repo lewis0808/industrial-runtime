@@ -191,6 +191,23 @@ export function encodeValue(type, value) {
       return b;
     }
     case 'str': return new TextEncoder().encode(value);
+    case 'binary': {
+      if (!(value instanceof Uint8Array)) throw new Error('irsp1: binary expects Uint8Array');
+      return value;
+    }
     default: throw new Error(`irsp1: unknown type "${type}"`);
   }
+}
+
+/** 由 JS 值推断 IRSP 类型标签（用于 SET 无显式 type 时）。 */
+export function inferType(value) {
+  if (typeof value === 'bigint') return 'i64';
+  if (typeof value === 'boolean') return 'bool';
+  if (typeof value === 'number') {
+    if (Number.isInteger(value) && Math.abs(value) <= 0x7fffffff) return 'i32';
+    return 'f64';
+  }
+  if (typeof value === 'string') return 'str';
+  if (value instanceof Uint8Array) return 'binary';
+  throw new Error(`irsp1: cannot infer type for ${typeof value}`);
 }

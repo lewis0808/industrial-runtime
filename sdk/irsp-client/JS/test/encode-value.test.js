@@ -39,3 +39,41 @@ test('encodeValue i16 round-trip', () => {
 test('encodeValue throws on unknown type', () => {
   assert.throws(() => encodeValue('unknown', 1), /unknown type/);
 });
+
+test('encodeValue binary round-trip', () => {
+  const src = new Uint8Array([1, 2, 3, 4, 5]);
+  const bytes = encodeValue('binary', src);
+  assert.deepEqual(Array.from(bytes), [1, 2, 3, 4, 5]);
+  assert.deepEqual(Array.from(decodeValue('binary', bytes)), [1, 2, 3, 4, 5]);
+});
+
+test('encodeValue binary rejects non-Uint8Array', () => {
+  assert.throws(() => encodeValue('binary', [1, 2, 3]), /Uint8Array/);
+});
+
+import { inferType } from '../src/irsp1.js';
+
+test('inferType bigint -> i64', () => {
+  assert.equal(inferType(123n), 'i64');
+});
+
+test('inferType number int-range -> i32 or i64', () => {
+  assert.equal(inferType(42), 'i32');
+  assert.equal(inferType(Number.MAX_SAFE_INTEGER + 1), 'f64'); // 超过安全整数范围
+});
+
+test('inferType number float -> f64', () => {
+  assert.equal(inferType(3.14), 'f64');
+});
+
+test('inferType boolean -> bool', () => {
+  assert.equal(inferType(true), 'bool');
+});
+
+test('inferType string -> str', () => {
+  assert.equal(inferType('hello'), 'str');
+});
+
+test('inferType Uint8Array -> binary', () => {
+  assert.equal(inferType(new Uint8Array([1, 2, 3])), 'binary');
+});
