@@ -134,3 +134,63 @@ export function decodeValue(type, b) {
     default: return b; // 未知类型保留原始字节
   }
 }
+
+/** JS 值 → 类型标签对应的小端字节（与 decodeValue 对称，见 datatype.md）。 */
+export function encodeValue(type, value) {
+  switch (type) {
+    case 'null': return new Uint8Array(0);
+    case 'bool': return new Uint8Array([value ? 1 : 0]);
+    case 'i8': {
+      const b = new Uint8Array(1);
+      new DataView(b.buffer).setInt8(0, value);
+      return b;
+    }
+    case 'i16': {
+      const b = new Uint8Array(2);
+      new DataView(b.buffer).setInt16(0, value, true);
+      return b;
+    }
+    case 'i32': {
+      const b = new Uint8Array(4);
+      new DataView(b.buffer).setInt32(0, value, true);
+      return b;
+    }
+    case 'i64': {
+      const b = new Uint8Array(8);
+      new DataView(b.buffer).setBigInt64(0, BigInt(value), true);
+      return b;
+    }
+    case 'u8': {
+      const b = new Uint8Array(1);
+      new DataView(b.buffer).setUint8(0, value);
+      return b;
+    }
+    case 'u16': {
+      const b = new Uint8Array(2);
+      new DataView(b.buffer).setUint16(0, value, true);
+      return b;
+    }
+    case 'u32': {
+      const b = new Uint8Array(4);
+      new DataView(b.buffer).setUint32(0, value, true);
+      return b;
+    }
+    case 'u64': {
+      const b = new Uint8Array(8);
+      new DataView(b.buffer).setBigUint64(0, BigInt(value), true);
+      return b;
+    }
+    case 'f32': {
+      const b = new Uint8Array(4);
+      new DataView(b.buffer).setFloat32(0, value, true);
+      return b;
+    }
+    case 'f64': {
+      const b = new Uint8Array(8);
+      new DataView(b.buffer).setFloat64(0, value, true);
+      return b;
+    }
+    case 'str': return new TextEncoder().encode(value);
+    default: throw new Error(`irsp1: unknown type "${type}"`);
+  }
+}
