@@ -63,3 +63,66 @@ export class SlidingStats {
 
   reset() { this._samples = []; this._errors = 0; }
 }
+
+/**
+ * Pipeline 控制器：在固定并发深度下持续发起请求，统计延迟与错误。
+ *
+ * 用法：
+ *   const p = new Pipeline();
+ *   await p.run({ sendFn, concurrency: 4, durationMs: 10000, onSample });
+ *
+ * sendFn: () => Promise<any>，每个 in-flight 请求调用一次
+ * onSample: 可选，每秒回调一次 (SlidingStats.summary)
+ */
+export class Pipeline {
+  constructor() {
+    this._stopped = false;
+  }
+
+  /** 立即停止（已发出的请求等其完成）。 */
+  stop() { this._stopped = true; }
+
+  /**
+   * @param {{sendFn:()=>Promise<any>, concurrency:number, durationMs:number, onSample?:(s:any)=>void}} opts
+   * @returns {Promise<{total:number, errors:number}>}
+   */
+  async run({ sendFn, concurrency, durationMs, onSample }) {
+    this._stopped = false;
+    const stats = new SlidingStats(1);
+    const start = Date.now();
+    const deadline = start + durationMs;
+    let total = 0;
+    let errors = 0;
+
+    let lastSample = start;
+    const maybeSample = (now) => {
+      if (onSample && now - lastSample >= 1000) {
+        onSample(stats.summary(now));
+        lastSample = now;
+      }
+    };
+
+    const worker = async () => {
+      while (!this._stopped && Date.now() < deadline) {
+        const t0 = Date.now();
+        try {
+          await sendFn();
+          stats.record(Date.now() - t0);
+        } catch (e) {
+          stats.record(Date.now() - t0);
+          stats.recordError();
+          errors++;
+        }
+        total++;
+        maybeSample(Date.now());
+      }
+    };
+
+    const workers = [];
+    for (let i = 0; i < concurrency; i++) workers.push(worker());
+    await Promise.all(workers);
+
+    if (onSample) onSample(stats.summary());
+    return { total, errors };
+  }
+}
