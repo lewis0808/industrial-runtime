@@ -82,6 +82,8 @@ export default {
 
     root.querySelector('#bm1-start').onclick = () => this._runScenario1();
     root.querySelector('#bm1-stop').onclick = () => this.pipeline?.stop();
+    root.querySelector('#bm3-start').onclick = () => this._runScenario3();
+    root.querySelector('#bm3-stop').onclick = () => { this._stopFlag = true; };
   },
 
   onConnect() {},
@@ -90,6 +92,7 @@ export default {
   },
   onHide() {
     this.pipeline?.stop();
+    this._stopFlag = true;
   },
 
   _ensureChart() {
@@ -169,5 +172,99 @@ export default {
     document.getElementById('bm1-start').disabled = false;
     document.getElementById('bm1-stop').disabled = true;
     try { await benchClient.bye(); } catch {}
+  },
+
+  async _runScenario3() {
+    if (!this.shared.getClient()) { alert('请先在顶栏连接'); return; }
+    const url = this.shared.getClient().url;
+    const conns = parseInt(document.getElementById('bm3-conns').value, 10);
+    const rate = parseInt(document.getElementById('bm3-rate').value, 10);
+    const name = document.getElementById('bm3-name').value;
+    const dur = parseInt(document.getElementById('bm3-dur').value, 10) * 1000;
+
+    document.getElementById('bm3-start').disabled = true;
+    document.getElementById('bm3-stop').disabled = false;
+
+    // 开 N 个连接
+    const clients = [];
+    try {
+      for (let i = 0; i < conns; i++) {
+        const c = new IrspClient(url);
+        await c.connect();
+        clients.push(c);
+      }
+    } catch (e) {
+      alert('打开连接失败: ' + e.message);
+      for (const c of clients) try { await c.bye(); } catch {}
+      document.getElementById('bm3-start').disabled = false;
+      document.getElementById('bm3-stop').disabled = true;
+      return;
+    }
+
+    this.scenario1Series = [];
+    this._stopFlag = false;
+    document.getElementById('bm3-stop').onclick = () => { this._stopFlag = true; };
+
+    const intervalMs = 1000 / rate;
+    const startMs = Date.now();
+    const counts = new Array(clients.length).fill(0);
+    const errors = new Array(clients.length).fill(0);
+    const lats = [];
+
+    const worker = async (c, idx) => {
+      let nextAt = Date.now();
+      while (!this._stopFlag && Date.now() - startMs < dur) {
+        const now = Date.now();
+        if (now < nextAt) {
+          await new Promise(r => setTimeout(r, Math.min(10, nextAt - now)));
+          continue;
+        }
+        nextAt += intervalMs;
+        const t0 = performance.now();
+        try {
+          await c.get(name);
+          lats.push(performance.now() - t0);
+          counts[idx]++;
+        } catch (e) {
+          errors[idx]++;
+        }
+        // 每秒采样
+        if (Math.floor((Date.now() - startMs) / 1000) > this.scenario1Series.length) {
+          this._pushScenario3Sample(startMs, counts, errors, lats);
+        }
+      }
+    };
+
+    await Promise.all(clients.map((c, i) => worker(c, i)));
+    this._pushScenario3Sample(startMs, counts, errors, lats);
+
+    for (const c of clients) try { await c.bye(); } catch {}
+    document.getElementById('bm3-start').disabled = false;
+    document.getElementById('bm3-stop').disabled = true;
+  },
+
+  _pushScenario3Sample(startMs, counts, errors, lats) {
+    const total = counts.reduce((a, b) => a + b, 0);
+    const errs = errors.reduce((a, b) => a + b, 0);
+    const elapsed = (Date.now() - startMs) / 1000;
+    const opsPerSec = elapsed > 0 ? total / elapsed : 0;
+    const sorted = [...lats].sort((a, b) => a - b);
+    const p = (q) => sorted.length === 0 ? NaN : sorted[Math.min(sorted.length - 1, Math.floor(q / 100 * sorted.length))];
+    const t = elapsed.toFixed(1) + 's';
+    this.scenario1Series.push({ t, ops: Math.round(opsPerSec), p50: +p(50).toFixed(3), p95: +p(95).toFixed(3), p99: +p(99).toFixed(3) });
+    const c = this._ensureChart();
+    c.setOption({
+      xAxis: { data: this.scenario1Series.map(x => x.t) },
+      series: [
+        { data: this.scenario1Series.map(x => x.ops) },
+        { data: this.scenario1Series.map(x => x.p50) },
+        { data: this.scenario1Series.map(x => x.p95) },
+        { data: this.scenario1Series.map(x => x.p99) },
+      ],
+    });
+    document.getElementById('bm3-metrics').innerHTML =
+      `total ops/s: <b>${opsPerSec.toFixed(0)}</b> | ` +
+      `avg latency: <b>${sorted.length > 0 ? (sorted.reduce((a,b)=>a+b,0)/sorted.length).toFixed(3) : 0}ms</b> | ` +
+      `errors: ${errs} | total ops: ${total}`;
   },
 };
