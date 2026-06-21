@@ -1,144 +1,94 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="business">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>IRSP Live Monitor</title>
-  <style>
-    :root {
-      --bg: #0e1116; --panel: #161b22; --line: #232a33; --muted: #8b949e;
-      --fg: #e6edf3; --accent: #2f81f7; --ok: #2ea043; --warn: #d29922;
-      --alarm: #db6d28; --crit: #f85149;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; background: var(--bg); color: var(--fg);
-      font: 14px/1.5 -apple-system, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
-    }
-    header {
-      display: flex; align-items: center; gap: 12px; padding: 14px 20px;
-      border-bottom: 1px solid var(--line); background: var(--panel);
-    }
-    header h1 { font-size: 16px; margin: 0; font-weight: 600; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; background: #6e7681; }
-    .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
-    .controls { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 20px; align-items: center; }
-    input {
-      background: #0d1117; border: 1px solid var(--line); color: var(--fg);
-      padding: 7px 10px; border-radius: 6px; font: inherit; min-width: 200px;
-    }
-    button {
-      background: var(--accent); color: #fff; border: 0; padding: 7px 14px;
-      border-radius: 6px; font: inherit; cursor: pointer;
-    }
-    button.secondary { background: #21262d; border: 1px solid var(--line); }
-    button:disabled { opacity: .5; cursor: not-allowed; }
-    .meta { color: var(--muted); font-size: 12px; margin-left: auto; }
-    main { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; padding: 0 20px 20px; }
-    @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
-    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-    .card h2 { font-size: 13px; margin: 0; padding: 10px 14px; border-bottom: 1px solid var(--line); color: var(--muted); font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 8px 14px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
-    th { color: var(--muted); font-weight: 500; font-size: 12px; }
-    td.val { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; color: var(--accent); }
-    td.type { color: var(--muted); font-size: 12px; }
-    .log { max-height: 420px; overflow: auto; }
-    .ev { display: grid; grid-template-columns: 64px 1fr auto; gap: 8px; padding: 7px 14px; border-bottom: 1px solid var(--line); font-size: 13px; }
-    .sev { font-size: 11px; font-weight: 700; text-transform: uppercase; }
-    .sev.info { color: var(--muted); } .sev.warning { color: var(--warn); }
-    .sev.alarm { color: var(--alarm); } .sev.critical { color: var(--crit); }
-    .ev .ts { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-    .server { padding: 10px 14px; color: var(--muted); font-size: 12px; font-family: ui-monospace, monospace; }
-    .empty { padding: 20px 14px; color: var(--muted); }
-  </style>
+  <title>IRSP Test Console</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/dist/full.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 </head>
-<body>
-  <header>
-    <span id="dot" class="dot"></span>
-    <h1>IRSP Live Monitor</h1>
-    <span id="serverInfo" class="meta">未连接</span>
+<body class="min-h-screen bg-base-200">
+  <header class="navbar bg-base-100 shadow sticky top-0 z-10">
+    <div class="flex-1 items-center gap-3">
+      <span id="dot" class="badge badge-xs"></span>
+      <h1 class="text-base font-semibold">IRSP Test Console</h1>
+      <span id="serverInfo" class="text-xs opacity-60">未连接</span>
+    </div>
+    <div class="flex-none gap-2">
+      <input id="url" class="input input-sm input-bordered w-64" value="ws://127.0.0.1:9777" />
+      <button id="connect" class="btn btn-sm btn-primary">连接</button>
+      <button id="disconnect" class="btn btn-sm btn-ghost" disabled>断开</button>
+    </div>
   </header>
 
-  <div class="controls">
-    <input id="url" value="ws://127.0.0.1:9777" />
-    <input id="pattern" value="#" title="订阅模式（Topic Tree，如 system/#）" />
-    <button id="connect">连接</button>
-    <button id="disconnect" class="secondary" disabled>断开</button>
+  <div role="tablist" class="tabs tabs-bordered bg-base-100">
+    <a role="tab" class="tab tab-active" data-tab="monitor">实时监控</a>
+    <a role="tab" class="tab" data-tab="command">命令测试</a>
+    <a role="tab" class="tab" data-tab="benchmark">性能压测</a>
+    <a role="tab" class="tab" data-tab="writeback">写回测试</a>
   </div>
 
-  <main>
-    <section class="card">
-      <h2>Tags</h2>
-      <div id="tagsWrap"><div class="empty">连接后显示实时 Tag…</div></div>
-    </section>
-    <section class="card">
-      <h2>Events</h2>
-      <div id="log" class="log"><div class="empty">连接后显示事件…</div></div>
-    </section>
+  <main class="p-4">
+    <section id="tab-monitor" class="tab-panel"></section>
+    <section id="tab-command" class="tab-panel hidden"></section>
+    <section id="tab-benchmark" class="tab-panel hidden"></section>
+    <section id="tab-writeback" class="tab-panel hidden"></section>
   </main>
 
   <script type="module">
     import { IrspClient } from '../src/index.js';
+    import monitor from './tabs/monitor.js';
+    import command from './tabs/command.js';
+    import benchmark from './tabs/benchmark.js';
+    import writeback from './tabs/writeback.js';
 
+    const tabs = { monitor, command, benchmark, writeback };
     const $ = (id) => document.getElementById(id);
     const dot = $('dot'), serverInfo = $('serverInfo');
-    const tagsWrap = $('tagsWrap'), log = $('log');
+
     let client = null;
-    const tags = new Map(); // name -> { type, value, ts }
+    const shared = { getClient: () => client };
 
-    const fmtTime = (tsNs) => {
-      try { return new Date(Number(tsNs / 1000000n)).toLocaleTimeString(); }
-      catch { return ''; }
-    };
-    const fmtVal = (v) => (typeof v === 'bigint' ? v.toString() : String(v));
-
-    function renderTags() {
-      if (tags.size === 0) { tagsWrap.innerHTML = '<div class="empty">暂无 Tag</div>'; return; }
-      const rows = [...tags.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([name, t]) => `<tr><td>${name}</td><td class="type">${t.type}</td>` +
-          `<td class="val">${fmtVal(t.value)}</td><td class="ts">${fmtTime(t.ts)}</td></tr>`).join('');
-      tagsWrap.innerHTML =
-        `<table><thead><tr><th>Topic</th><th>类型</th><th>值</th><th>时间</th></tr></thead><tbody>${rows}</tbody></table>`;
-    }
-
-    function addEvent(e) {
-      if (log.querySelector('.empty')) log.innerHTML = '';
-      const row = document.createElement('div');
-      row.className = 'ev';
-      row.innerHTML = `<span class="sev ${e.severity}">${e.severity}</span>` +
-        `<span>${e.category}: ${e.message}</span><span class="ts">${fmtTime(e.ts)}</span>`;
-      log.prepend(row);
-      while (log.childElementCount > 100) log.lastElementChild.remove();
-    }
+    // 初始化每个 tab
+    Object.values(tabs).forEach(t => t.init(shared));
 
     function setConnected(on) {
-      dot.classList.toggle('on', on);
+      dot.classList.toggle('badge-primary', on);
       $('connect').disabled = on;
       $('disconnect').disabled = !on;
     }
 
+    // tab 切换
+    document.querySelectorAll('[role="tab"]').forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll('[role="tab"]').forEach(t => t.classList.remove('tab-active'));
+        tab.classList.add('tab-active');
+        const name = tab.dataset.tab;
+        Object.entries(tabs).forEach(([k, t]) => {
+          const panel = document.getElementById('tab-' + k);
+          const visible = (k === name);
+          panel.classList.toggle('hidden', !visible);
+          if (visible) t.onShow?.();
+          else t.onHide?.();
+        });
+      };
+    });
+
     $('connect').onclick = async () => {
       const url = $('url').value.trim();
-      const pattern = $('pattern').value.trim() || '#';
       client = new IrspClient(url);
-      client.on('tag', (t) => { tags.set(t.name, t); renderTags(); });
-      client.on('event', addEvent);
-      client.on('close', () => { setConnected(false); serverInfo.textContent = '已断开'; });
+      client.on('close', () => {
+        setConnected(false);
+        serverInfo.textContent = '已断开';
+        Object.values(tabs).forEach(t => t.onDisconnect?.());
+      });
       client.on('error', () => { serverInfo.textContent = '连接错误'; });
       try {
         await client.connect();
         setConnected(true);
-        serverInfo.textContent = `${client.server.server} · ${client.server.encoding} · ${client.server.transports}`;
-        // 预填现有 Tag
-        const { names } = await client.scan('0', pattern.includes('#') || pattern.includes('+') ? pattern : '#');
-        if (names.length) {
-          const got = await client.mget(names);
-          got.forEach((t) => t && tags.set(t.name, t));
-          renderTags();
-        }
-        await client.subscribe(pattern);
-        await client.subevent('info');
+        serverInfo.textContent = `${client.server.server} · ${client.server.encoding}`;
+        Object.values(tabs).forEach(t => t.onConnect?.());
       } catch (err) {
         serverInfo.textContent = '连接失败: ' + err.message;
         setConnected(false);
