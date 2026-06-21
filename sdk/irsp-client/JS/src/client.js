@@ -3,7 +3,7 @@
 // 语义：请求-回复在连接上按 FIFO 顺序对应（RESP 风格，无请求 id）；
 // 服务端主动推送的帧带 `push` 字段（"tag" / "event"），据此与回复区分。
 
-import { encodeRequest, decode, decodeValue, asStr, IrspError } from './irsp1.js';
+import { encodeRequest, decode, decodeValue, asStr, IrspError, encodeValue, inferType } from './irsp1.js';
 
 /** @typedef {{name:string,type:string,ts:bigint,value:any,quality?:string}} TagValue */
 /** @typedef {{source:string,category:string,severity:string,ts:bigint,message:string}} IrspEvent */
@@ -129,6 +129,20 @@ export class IrspClient extends Emitter {
 
   async exists(name) {
     return Number(await this._send(['EXISTS', name])) !== 0;
+  }
+
+  /**
+   * 写回（SET）。runtime 收下后路由给拥有该 topic 前缀的插件。
+   * @param {string} name
+   * @param {any} value
+   * @param {string} [type] 'i64'|'f64'|'bool'|'str'|'i32'|...，省略则按 JS 值推断
+   * @returns {Promise<string>} 'ok' | 'accepted' | 'not_owner' | ...
+   */
+  async set(name, value, type) {
+    const t = type ?? inferType(value);
+    const payload = encodeValue(t, value);
+    const r = await this._send(['SET', name, t, payload]);
+    return asStr(r);
   }
 
   /** @returns {Promise<{nextCursor:string,names:string[]}>} */
