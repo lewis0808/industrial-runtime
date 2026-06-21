@@ -3,7 +3,7 @@
 // 场景三：多连接并发（开 M 个 IrspClient，每连接 R ops/s）
 // 场景二（推送扇出）延期到 Phase 2。
 
-import { IrspClient } from '../src/index.js';
+import { IrspClient } from '../../src/index.js';
 import { Pipeline } from '../../src/perf.js';
 
 export default {
