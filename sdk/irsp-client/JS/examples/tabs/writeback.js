@@ -11,69 +11,62 @@ export default {
 
     const root = document.getElementById('tab-writeback');
     root.innerHTML = `
-      <div class="space-y-4">
+      <div class="space-y-3">
         <!-- 插件检测 -->
-        <div class="card bg-base-100 shadow">
-          <div class="card-body p-4">
-            <h2 class="card-title text-sm">写回链路状态</h2>
-            <div class="flex items-center gap-3 mt-2">
-              <span>插件 demo-writeback：</span>
-              <span id="wb-status" class="badge badge-ghost badge-sm">未检测</span>
-              <button id="wb-probe" class="btn btn-sm btn-ghost">重新检测</button>
+        <div class="surface" style="padding: 14px;">
+          <div class="h-cmd-group">写回链路状态</div>
+          <div class="flex items-center gap-3 mt-3">
+            <div id="wb-status-wrap" class="flex items-center gap-2">
+              <span id="wb-status-dot" class="live-dot offline"></span>
+              <span id="wb-status" class="mono text-xs text-muted">未检测</span>
             </div>
-            <p class="text-xs opacity-60 mt-1">探针：SET demo/__probe__=1，订阅 demo/__probe__，500ms 内收到推送视为已加载</p>
+            <button id="wb-probe" class="btn btn-ghost btn-sm">重新检测</button>
+            <span class="text-xs text-dim mono">SET demo/__probe__=1 → 500ms 内收到推送 = 已加载</span>
           </div>
         </div>
 
         <!-- 单次写回 -->
-        <div class="card bg-base-100 shadow">
-          <div class="card-body p-4">
-            <h2 class="card-title text-sm">单次写回</h2>
-            <div class="flex flex-wrap gap-2 items-center mt-2">
-              <input id="wb-name" class="input input-sm input-bordered w-48" value="demo/foo" />
-              <select id="wb-type" class="select select-sm select-bordered">
-                <option>i64</option><option>f64</option><option>bool</option><option>str</option>
-              </select>
-              <input id="wb-value" class="input input-sm input-bordered w-32" value="42" />
-              <button id="wb-send" class="btn btn-sm btn-primary" disabled>发送 SET</button>
-            </div>
-            <div id="wb-chart" class="mt-3" style="width:100%;height:200px;"></div>
-            <div id="wb-result" class="font-mono text-sm mt-2 opacity-70">未运行</div>
+        <div class="surface" style="padding: 14px;">
+          <div class="h-cmd-group">单次写回 · 时序可视化</div>
+          <div class="flex flex-wrap gap-2 items-center mt-2">
+            <input id="wb-name" class="input input-sm mono w-48" value="demo/foo" />
+            <select id="wb-type" class="select select-sm mono">
+              <option>i64</option><option>f64</option><option>bool</option><option>str</option>
+            </select>
+            <input id="wb-value" class="input input-sm mono w-32" value="42" />
+            <button id="wb-send" class="btn btn-primary btn-sm" disabled>发送 SET</button>
           </div>
+          <div id="wb-chart" class="mt-3" style="width:100%;height:200px;"></div>
+          <div id="wb-result" class="text-xs text-dim mono mt-2">未运行</div>
         </div>
 
         <!-- 批量写回 -->
-        <div class="card bg-base-100 shadow">
-          <div class="card-body p-4">
-            <h2 class="card-title text-sm">批量写回</h2>
-            <div class="flex flex-wrap gap-2 items-center mt-2">
-              <span class="text-xs">前缀</span>
-              <input id="wb-bp" class="input input-sm input-bordered w-40" value="demo/batch/" />
-              <span class="text-xs">数量</span>
-              <input id="wb-bn" type="number" class="input input-sm input-bordered w-20" value="100" />
-              <span class="text-xs">起始值</span>
-              <input id="wb-bv" type="number" class="input input-sm input-bordered w-20" value="0" />
-              <button id="wb-bstart" class="btn btn-sm btn-primary" disabled>开始</button>
-            </div>
-            <progress id="wb-progress" class="progress progress-primary mt-2" value="0" max="100"></progress>
-            <div id="wb-bmetrics" class="font-mono text-sm mt-2 opacity-70">未运行</div>
+        <div class="surface" style="padding: 14px;">
+          <div class="h-cmd-group">批量写回</div>
+          <div class="flex flex-wrap gap-2 items-center mt-2">
+            <span class="text-xs text-muted mono">PREFIX</span>
+            <input id="wb-bp" class="input input-sm mono w-40" value="demo/batch/" />
+            <span class="text-xs text-muted mono">COUNT</span>
+            <input id="wb-bn" type="number" class="input input-sm mono w-20" value="100" />
+            <span class="text-xs text-muted mono">START</span>
+            <input id="wb-bv" type="number" class="input input-sm mono w-20" value="0" />
+            <button id="wb-bstart" class="btn btn-primary btn-sm" disabled>开始</button>
           </div>
+          <div class="progress mt-3"><div id="wb-progress-bar" style="width:0%;"></div></div>
+          <div id="wb-bmetrics" class="text-xs text-dim mono mt-2">未运行</div>
         </div>
 
         <!-- 断言 -->
-        <div class="card bg-base-100 shadow">
-          <div class="card-body p-4">
-            <h2 class="card-title text-sm">写回断言</h2>
-            <p class="text-xs opacity-70">SET 之后 500ms 内该 topic 的 tag 推送值与 SET 值一致</p>
-            <div class="flex gap-2 items-center mt-2">
-              <span class="text-xs">topic</span>
-              <input id="wb-aname" class="input input-sm input-bordered w-48" value="demo/assert" />
-              <span class="text-xs">value</span>
-              <input id="wb-aval" class="input input-sm input-bordered w-24" value="99" />
-              <button id="wb-assert" class="btn btn-sm btn-primary" disabled>运行断言</button>
-            </div>
-            <div id="wb-assert-result" class="font-mono text-sm mt-2 opacity-70">未运行</div>
+        <div class="surface" style="padding: 14px;">
+          <div class="h-cmd-group">写回断言 · L1 同步受理 + L2 echo 回环</div>
+          <div class="flex gap-2 items-center mt-2">
+            <span class="text-xs text-muted mono">TOPIC</span>
+            <input id="wb-aname" class="input input-sm mono w-48" value="demo/assert" />
+            <span class="text-xs text-muted mono">VALUE</span>
+            <input id="wb-aval" class="input input-sm mono w-24" value="99" />
+            <button id="wb-assert" class="btn btn-primary btn-sm" disabled>运行断言</button>
           </div>
+          <div id="wb-assert-result" class="mt-3"></div>
         </div>
       </div>
     `;
@@ -86,16 +79,15 @@ export default {
 
   onConnect() {
     this.client = this.shared.getClient();
-    // 连接后自动探针
     this._probe();
   },
   onDisconnect() {
     this.client = null;
     this.pluginReady = false;
     this._setBtns(false);
-    document.getElementById('wb-status').className = 'badge badge-ghost badge-sm';
-    document.getElementById('wb-status').textContent = '未检测';
+    this._setStatus('offline', '未检测');
   },
+  onHide() {},
 
   _setBtns(enabled) {
     document.getElementById('wb-send').disabled = !enabled;
@@ -103,11 +95,25 @@ export default {
     document.getElementById('wb-assert').disabled = !enabled;
   },
 
+  _setStatus(state, text) {
+    const dot = document.getElementById('wb-status-dot');
+    const lbl = document.getElementById('wb-status');
+    dot.className = 'live-dot ' + state;
+    if (state === 'online') {
+      lbl.className = 'mono text-xs text-cyan';
+    } else if (state === 'offline') {
+      lbl.className = 'mono text-xs text-muted';
+    } else if (state === 'pending') {
+      lbl.className = 'mono text-xs text-yellow';
+    } else if (state === 'error') {
+      lbl.className = 'mono text-xs text-red';
+    }
+    lbl.textContent = text;
+  },
+
   async _probe() {
     if (!this.client) return;
-    const statusEl = document.getElementById('wb-status');
-    statusEl.className = 'badge badge-warning badge-sm';
-    statusEl.textContent = '检测中...';
+    this._setStatus('pending', '检测中…');
     try {
       await this.client.subscribe('demo/__probe__');
       const probePromise = new Promise((resolve) => {
@@ -123,12 +129,14 @@ export default {
       await this.client.set('demo/__probe__', 1, 'i64');
       const got = await probePromise;
       this.pluginReady = !!got;
-      statusEl.className = `badge badge-sm ${got ? 'badge-success' : 'badge-error'}`;
-      statusEl.textContent = got ? '✓ 已加载' : '✗ 未加载';
+      if (got) {
+        this._setStatus('online', '✓ 插件已加载');
+      } else {
+        this._setStatus('error', '✗ 未加载');
+      }
       this._setBtns(got);
     } catch (e) {
-      statusEl.className = 'badge badge-error badge-sm';
-      statusEl.textContent = '✗ 错误: ' + e.message;
+      this._setStatus('error', '✗ 错误: ' + e.message);
       this.pluginReady = false;
     }
   },
@@ -137,10 +145,31 @@ export default {
     if (this.chart) return this.chart;
     this.chart = echarts.init(document.getElementById('wb-chart'));
     this.chart.setOption({
-      tooltip: { trigger: 'axis' },
-      xAxis: { type: 'category', data: ['SET 发出', '回复到达', '推送到达'] },
-      yAxis: { type: 'value', name: 'ms' },
-      series: [{ type: 'bar', data: [0, 0, 0], name: '相对时间' }],
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: '#13181f',
+        borderColor: '#2a323e',
+        textStyle: { color: '#e4e7eb', fontFamily: 'JetBrains Mono, monospace', fontSize: 11 },
+      },
+      grid: { left: 50, right: 30, top: 20, bottom: 30 },
+      xAxis: {
+        type: 'category', data: ['SET 发出', '回复到达', '推送到达'],
+        axisLine: { lineStyle: { color: '#2a323e' } },
+        axisLabel: { color: '#7d8590', fontFamily: 'JetBrains Mono, monospace', fontSize: 10 },
+      },
+      yAxis: {
+        type: 'value', name: 'ms',
+        nameTextStyle: { color: '#7d8590', fontSize: 10 },
+        axisLine: { lineStyle: { color: '#2a323e' } },
+        axisLabel: { color: '#7d8590', fontFamily: 'JetBrains Mono, monospace', fontSize: 10 },
+        splitLine: { lineStyle: { color: '#1a2029' } },
+      },
+      series: [{
+        type: 'bar', data: [0, 0, 0], name: '相对时间',
+        itemStyle: { color: '#00d4ff' },
+        barWidth: '40%',
+      }],
     });
     return this.chart;
   },
@@ -160,7 +189,6 @@ export default {
     const setSent = t0;
     let replyAt = null, pushAt = null;
 
-    // 监听推送
     const pushPromise = new Promise((resolve) => {
       const handler = (t) => {
         if (t.name === name) {
@@ -183,17 +211,25 @@ export default {
       const c = this._ensureChart();
       c.setOption({
         xAxis: { data: events.map(e => e.label) },
-        series: [{ data: events.map(e => +e.t.toFixed(3)) }],
+        series: [{
+          data: events.map(e => +e.t.toFixed(3)),
+          itemStyle: {
+            color: (p) => p.name === '推送到达' ? '#3fb950' : (p.name === '回复到达' ? '#00d4ff' : '#7d8590'),
+          },
+        }],
       });
 
       const totalMs = (pushAt || replyAt) - setSent;
-      document.getElementById('wb-result').innerHTML =
-        `SET ${name} = ${raw} → <b>${r}</b><br>` +
-        `回复耗时: <b>${(replyAt - setSent).toFixed(3)}ms</b><br>` +
-        `推送耗时: <b>${pushAt ? (pushAt - setSent).toFixed(3) + 'ms' : '超时'}</b><br>` +
-        `总往返: <b>${totalMs.toFixed(3)}ms</b>`;
+      document.getElementById('wb-result').innerHTML = `
+        <div class="metric-grid">
+          <div class="metric-cell"><div class="metric-label">RESPONSE</div><div class="metric-value cyan">${(replyAt - setSent).toFixed(3)}<span class="text-dim" style="font-size:12px;">ms</span></div></div>
+          <div class="metric-cell"><div class="metric-label">PUSH</div><div class="metric-value ${pushAt ? '' : 'text-red'}">${pushAt ? (pushAt - setSent).toFixed(3) + '<span class="text-dim" style="font-size:12px;">ms</span>' : '超时'}</div></div>
+          <div class="metric-cell"><div class="metric-label">ROUND TRIP</div><div class="metric-value">${totalMs.toFixed(3)}<span class="text-dim" style="font-size:12px;">ms</span></div></div>
+          <div class="metric-cell"><div class="metric-label">REPLY</div><div class="metric-value" style="font-size:14px;">${r}</div></div>
+        </div>
+      `;
     } catch (e) {
-      document.getElementById('wb-result').innerHTML = `<span class="text-error">错误: ${e.message}</span>`;
+      document.getElementById('wb-result').innerHTML = `<span class="text-red mono">错误: ${e.message}</span>`;
     }
   },
 
@@ -202,7 +238,7 @@ export default {
     const prefix = document.getElementById('wb-bp').value;
     const n = parseInt(document.getElementById('wb-bn').value, 10);
     const startV = parseInt(document.getElementById('wb-bv').value, 10);
-    const prog = document.getElementById('wb-progress');
+    const bar = document.getElementById('wb-progress-bar');
     const metrics = document.getElementById('wb-bmetrics');
     const lats = [];
 
@@ -213,18 +249,25 @@ export default {
         await this.client.set(prefix + i, startV + i, 'i64');
         lats.push(performance.now() - ts);
       } catch (e) { /* ignore */ }
-      prog.value = ((i + 1) / n) * 100;
-      if (i % 10 === 0) {
-        metrics.innerHTML = `进度 ${i + 1}/${n} | 平均 ${(lats.reduce((a, b) => a + b, 0) / lats.length).toFixed(3)}ms`;
+      bar.style.width = ((i + 1) / n * 100) + '%';
+      if (i % 10 === 0 || i === n - 1) {
+        const avg = lats.length ? lats.reduce((a, b) => a + b, 0) / lats.length : 0;
+        metrics.innerHTML = `进度 <span class="text-cyan">${i + 1}/${n}</span> · 平均 ${avg.toFixed(3)}ms`;
       }
     }
     const elapsed = performance.now() - t0;
     lats.sort((a, b) => a - b);
-    metrics.innerHTML =
-      `完成 ${n} 条 | 总耗时 ${(elapsed / 1000).toFixed(2)}s | ops/s <b>${(n / (elapsed / 1000)).toFixed(0)}</b><br>` +
-      `latency p50: ${lats[Math.floor(lats.length * 0.5)]?.toFixed(3)}ms | ` +
-      `p95: ${lats[Math.floor(lats.length * 0.95)]?.toFixed(3)}ms | ` +
-      `max: ${lats[lats.length - 1]?.toFixed(3)}ms`;
+    const p = (q) => lats.length ? lats[Math.min(lats.length - 1, Math.floor(q / 100 * lats.length))].toFixed(3) : '—';
+    metrics.innerHTML = `
+      <div class="metric-grid">
+        <div class="metric-cell"><div class="metric-label">OPS/S</div><div class="metric-value cyan">${(n / (elapsed / 1000)).toFixed(0)}</div></div>
+        <div class="metric-cell"><div class="metric-label">ELAPSED</div><div class="metric-value">${(elapsed / 1000).toFixed(2)}<span class="text-dim" style="font-size:12px;">s</span></div></div>
+        <div class="metric-cell"><div class="metric-label">P50</div><div class="metric-value">${p(50)}<span class="text-dim" style="font-size:12px;">ms</span></div></div>
+        <div class="metric-cell"><div class="metric-label">P95</div><div class="metric-value" style="color:var(--yellow);">${p(95)}<span class="text-dim" style="font-size:12px;">ms</span></div></div>
+        <div class="metric-cell"><div class="metric-label">MAX</div><div class="metric-value" style="color:var(--red);">${lats.length ? lats[lats.length - 1].toFixed(3) : '—'}<span class="text-dim" style="font-size:12px;">ms</span></div></div>
+        <div class="metric-cell"><div class="metric-label">COUNT</div><div class="metric-value">${n}</div></div>
+      </div>
+    `;
   },
 
   async _assert() {
@@ -234,7 +277,6 @@ export default {
     const expected = BigInt(raw);
     const resultEl = document.getElementById('wb-assert-result');
 
-    // L1 + L2
     const pushPromise = new Promise((resolve) => {
       const handler = (t) => {
         if (t.name === name) {
@@ -247,20 +289,25 @@ export default {
     });
 
     try {
-      // L1：同步受理
       const reply = await this.client.set(name, expected, 'i64');
-      // L2：echo 回环
       const tag = await pushPromise;
-      const l1Pass = (reply === 'ok' || reply === 'accepted');
+      const l1Pass = (reply === 'ok' || reply === 'accepted' || reply === 'OK');
       const l2Pass = !!tag && BigInt(tag.value) === expected;
 
-      const lines = [
-        `L1 同步受理: <b class="${l1Pass ? 'text-success' : 'text-error'}">${l1Pass ? 'PASS' : 'FAIL'}</b> (reply: ${reply})`,
-        `L2 echo 回环: <b class="${l2Pass ? 'text-success' : 'text-error'}">${l2Pass ? 'PASS' : 'FAIL'}</b> ${tag ? `(got ${tag.value})` : '(无推送)'}`,
-      ];
-      resultEl.innerHTML = lines.join('<br>');
+      resultEl.innerHTML = `
+        <div class="assert-line ${l1Pass ? 'assert-pass' : 'assert-fail'}">
+          <span class="assert-tag ${l1Pass ? 'pass' : 'fail'}">${l1Pass ? 'PASS' : 'FAIL'}</span>
+          <span>L1 同步受理</span>
+          <span class="text-muted" style="margin-left:auto;">reply: ${reply}</span>
+        </div>
+        <div class="assert-line ${l2Pass ? 'assert-pass' : 'assert-fail'}">
+          <span class="assert-tag ${l2Pass ? 'pass' : 'fail'}">${l2Pass ? 'PASS' : 'FAIL'}</span>
+          <span>L2 echo 回环</span>
+          <span class="text-muted" style="margin-left:auto;">${tag ? `got ${tag.value}` : '无推送'}</span>
+        </div>
+      `;
     } catch (e) {
-      resultEl.innerHTML = `<span class="text-error">错误: ${e.message}</span>`;
+      resultEl.innerHTML = `<div class="assert-line assert-fail"><span class="assert-tag fail">ERR</span><span class="text-red mono">${e.message}</span></div>`;
     }
   },
 };

@@ -1,33 +1,39 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="business">
+<html lang="zh-CN" data-theme="irsp">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>IRSP Test Console</title>
+  <title>IRSP Console</title>
   <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
   <link href="https://cdn.jsdelivr.net/npm/daisyui@5/dist/full.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="./styles.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 </head>
-<body class="min-h-screen bg-base-200">
-  <header class="navbar bg-base-100 shadow sticky top-0 z-10">
-    <div class="flex-1 items-center gap-3">
-      <span id="dot" class="badge badge-xs"></span>
-      <h1 class="text-base font-semibold">IRSP Test Console</h1>
-      <span id="serverInfo" class="text-xs opacity-60">未连接</span>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon"></span>
+      <span>IRSP CONSOLE</span>
     </div>
-    <div class="flex-none gap-2">
-      <input id="url" class="input input-sm input-bordered w-64" value="ws://127.0.0.1:9777" />
-      <button id="connect" class="btn btn-sm btn-primary">连接</button>
-      <button id="disconnect" class="btn btn-sm btn-ghost" disabled>断开</button>
+    <div id="livePill" class="live-pill offline">
+      <span id="liveDot" class="live-dot offline"></span>
+      <span id="liveText">OFFLINE</span>
+    </div>
+    <div id="serverInfo" class="mono text-muted text-xs flex-1">未连接</div>
+    <div class="flex items-center gap-2">
+      <input id="url" class="input mono w-64" value="ws://127.0.0.1:9777" />
+      <button id="connect" class="btn btn-primary">连接</button>
+      <button id="disconnect" class="btn btn-ghost" disabled>断开</button>
     </div>
   </header>
 
-  <div role="tablist" class="tabs tabs-bordered bg-base-100">
-    <a role="tab" class="tab tab-active" data-tab="monitor">实时监控</a>
-    <a role="tab" class="tab" data-tab="command">命令测试</a>
-    <a role="tab" class="tab" data-tab="benchmark">性能压测</a>
-    <a role="tab" class="tab" data-tab="writeback">写回测试</a>
-  </div>
+  <nav class="tab-nav">
+    <div class="tab-item active" data-tab="monitor">实时监控</div>
+    <div class="tab-item" data-tab="command">命令测试</div>
+    <div class="tab-item" data-tab="benchmark">性能压测</div>
+    <div class="tab-item" data-tab="writeback">写回测试</div>
+  </nav>
 
   <main class="p-4">
     <section id="tab-monitor" class="tab-panel"></section>
@@ -45,25 +51,32 @@
 
     const tabs = { monitor, command, benchmark, writeback };
     const $ = (id) => document.getElementById(id);
-    const dot = $('dot'), serverInfo = $('serverInfo');
+    const livePill = $('livePill'), liveDot = $('liveDot'), liveText = $('liveText');
+    const serverInfo = document.querySelector('#serverInfo');
 
     let client = null;
     const shared = { getClient: () => client };
 
-    // 初始化每个 tab
     Object.values(tabs).forEach(t => t.init(shared));
 
     function setConnected(on) {
-      dot.classList.toggle('badge-primary', on);
+      if (on) {
+        livePill.className = 'live-pill online';
+        liveDot.className = 'live-dot online';
+        liveText.textContent = 'LIVE';
+      } else {
+        livePill.className = 'live-pill offline';
+        liveDot.className = 'live-dot offline';
+        liveText.textContent = 'OFFLINE';
+      }
       $('connect').disabled = on;
       $('disconnect').disabled = !on;
     }
 
-    // tab 切换
-    document.querySelectorAll('[role="tab"]').forEach(tab => {
+    document.querySelectorAll('.tab-item').forEach(tab => {
       tab.onclick = () => {
-        document.querySelectorAll('[role="tab"]').forEach(t => t.classList.remove('tab-active'));
-        tab.classList.add('tab-active');
+        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
         const name = tab.dataset.tab;
         Object.entries(tabs).forEach(([k, t]) => {
           const panel = document.getElementById('tab-' + k);
@@ -81,16 +94,22 @@
       client.on('close', () => {
         setConnected(false);
         serverInfo.textContent = '已断开';
+        serverInfo.className = 'mono text-red text-xs flex-1';
         Object.values(tabs).forEach(t => t.onDisconnect?.());
       });
-      client.on('error', () => { serverInfo.textContent = '连接错误'; });
+      client.on('error', () => {
+        serverInfo.textContent = '连接错误';
+        serverInfo.className = 'mono text-red text-xs flex-1';
+      });
       try {
         await client.connect();
         setConnected(true);
         serverInfo.textContent = `${client.server.server} · ${client.server.encoding}`;
+        serverInfo.className = 'mono text-cyan text-xs flex-1';
         Object.values(tabs).forEach(t => t.onConnect?.());
       } catch (err) {
         serverInfo.textContent = '连接失败: ' + err.message;
+        serverInfo.className = 'mono text-red text-xs flex-1';
         setConnected(false);
       }
     };
@@ -99,6 +118,14 @@
       try { await client?.bye(); } catch {}
       setConnected(false);
     };
+
+    // 时钟
+    setInterval(() => {
+      const now = new Date();
+      const t = now.toLocaleTimeString('zh-CN', { hour12: false });
+      const clockEl = document.getElementById('clock');
+      if (clockEl) clockEl.textContent = t;
+    }, 1000);
   </script>
 </body>
 </html>

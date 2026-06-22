@@ -11,97 +11,96 @@ export default {
 
     const root = document.getElementById('tab-command');
     root.innerHTML = `
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div class="card bg-base-100 shadow">
-          <div class="card-body p-4 space-y-3">
-            <h2 class="card-title text-xs uppercase opacity-60">连接命令</h2>
-            <div class="flex gap-2 flex-wrap">
-              <button class="btn btn-sm" data-cmd="HELLO">HELLO</button>
-              <button class="btn btn-sm" data-cmd="PING">PING</button>
-              <button class="btn btn-sm" data-cmd="BYE">BYE</button>
-            </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div class="surface" style="padding: 14px;">
+          <div class="h-cmd-group">连接命令</div>
+          <div class="flex gap-2 flex-wrap mb-3">
+            <button class="btn btn-ghost btn-sm" data-cmd="HELLO">HELLO</button>
+            <button class="btn btn-ghost btn-sm" data-cmd="PING">PING</button>
+            <button class="btn btn-ghost btn-sm" data-cmd="BYE">BYE</button>
+          </div>
 
-            <h2 class="card-title text-xs uppercase opacity-60 mt-3">读命令</h2>
+          <div class="h-cmd-group">读命令</div>
+          <div class="space-y-2 mb-3">
             <div class="flex gap-2 items-center">
-              <span class="text-xs w-16">GET</span>
-              <input class="input input-sm input-bordered flex-1" data-arg="get_name" value="system/heartbeat" />
-              <button class="btn btn-sm btn-primary" data-fn="get">执行</button>
+              <span class="text-xs text-muted mono w-14">GET</span>
+              <input class="input input-sm mono flex-1" data-arg="get_name" value="system/heartbeat" />
+              <button class="btn btn-primary btn-sm" data-fn="get">执行</button>
             </div>
             <div class="flex gap-2 items-center">
-              <span class="text-xs w-16">MGET</span>
-              <input class="input input-sm input-bordered flex-1" data-arg="mget_names" value="system/heartbeat,demo/foo" />
-              <button class="btn btn-sm btn-primary" data-fn="mget">执行</button>
+              <span class="text-xs text-muted mono w-14">MGET</span>
+              <input class="input input-sm mono flex-1" data-arg="mget_names" value="system/heartbeat,demo/foo" />
+              <button class="btn btn-primary btn-sm" data-fn="mget">执行</button>
             </div>
             <div class="flex gap-2 items-center">
-              <span class="text-xs w-16">EXISTS</span>
-              <input class="input input-sm input-bordered flex-1" data-arg="exists_name" value="system/heartbeat" />
-              <button class="btn btn-sm btn-primary" data-fn="exists">执行</button>
+              <span class="text-xs text-muted mono w-14">EXISTS</span>
+              <input class="input input-sm mono flex-1" data-arg="exists_name" value="system/heartbeat" />
+              <button class="btn btn-primary btn-sm" data-fn="exists">执行</button>
             </div>
             <div class="flex gap-2 items-center">
-              <span class="text-xs w-16">SCAN</span>
-              <input class="input input-sm input-bordered w-20" data-arg="scan_cursor" value="0" />
-              <input class="input input-sm input-bordered flex-1" data-arg="scan_pattern" value="#" />
-              <button class="btn btn-sm btn-primary" data-fn="scan">执行</button>
+              <span class="text-xs text-muted mono w-14">SCAN</span>
+              <input class="input input-sm mono w-20" data-arg="scan_cursor" value="0" />
+              <input class="input input-sm mono flex-1" data-arg="scan_pattern" value="#" />
+              <button class="btn btn-primary btn-sm" data-fn="scan">执行</button>
             </div>
+          </div>
 
-            <h2 class="card-title text-xs uppercase opacity-60 mt-3">订阅命令</h2>
+          <div class="h-cmd-group">订阅命令</div>
+          <div class="space-y-2 mb-3">
             <div class="flex gap-2 items-center">
-              <span class="text-xs w-16">WATCH</span>
-              <input class="input input-sm input-bordered flex-1" data-arg="watch_names" value="demo/foo" />
-              <button class="btn btn-sm" data-fn="watch">执行</button>
+              <span class="text-xs text-muted mono w-14">WATCH</span>
+              <input class="input input-sm mono flex-1" data-arg="watch_names" value="demo/foo" />
+              <button class="btn btn-ghost btn-sm" data-fn="watch">执行</button>
             </div>
             <div class="flex gap-2 items-center">
-              <span class="text-xs w-16">SUBSCRIBE</span>
-              <input class="input input-sm input-bordered flex-1" data-arg="sub_patterns" value="demo/#" />
-              <button class="btn btn-sm" data-fn="subscribe">执行</button>
+              <span class="text-xs text-muted mono w-14">SUB</span>
+              <input class="input input-sm mono flex-1" data-arg="sub_patterns" value="demo/#" />
+              <button class="btn btn-ghost btn-sm" data-fn="subscribe">执行</button>
             </div>
             <div class="flex gap-2 items-center">
-              <span class="text-xs w-16">SUBEVENT</span>
-              <select class="select select-sm select-bordered" data-arg="subevent_sev">
+              <span class="text-xs text-muted mono w-14">SUBEVENT</span>
+              <select class="select select-sm mono" data-arg="subevent_sev">
                 <option>info</option><option>warning</option><option>alarm</option><option>critical</option>
               </select>
-              <button class="btn btn-sm" data-fn="subevent">执行</button>
+              <button class="btn btn-ghost btn-sm" data-fn="subevent">执行</button>
             </div>
-            <div class="flex gap-2 flex-wrap">
-              <button class="btn btn-sm btn-ghost" data-fn="unwatch">UNWATCH</button>
-              <button class="btn btn-sm btn-ghost" data-fn="unsubscribe">UNSUBSCRIBE</button>
-              <button class="btn btn-sm btn-ghost" data-fn="unsubevent">UNSUBEVENT</button>
+            <div class="flex gap-2 flex-wrap mt-2">
+              <button class="btn btn-ghost btn-xs" data-fn="unwatch">UNWATCH</button>
+              <button class="btn btn-ghost btn-xs" data-fn="unsubscribe">UNSUBSCRIBE</button>
+              <button class="btn btn-ghost btn-xs" data-fn="unsubevent">UNSUBEVENT</button>
             </div>
-
-            <h2 class="card-title text-xs uppercase opacity-60 mt-3">写命令</h2>
-            <div class="flex gap-2 items-center">
-              <span class="text-xs w-16">SET</span>
-              <input class="input input-sm input-bordered flex-1" data-arg="set_name" value="demo/foo" />
-              <select class="select select-sm select-bordered" data-arg="set_type">
-                ${TYPES.map(t => `<option>${t}</option>`).join('')}
-              </select>
-              <input class="input input-sm input-bordered w-32" data-arg="set_value" value="42" />
-              <button class="btn btn-sm btn-primary" data-fn="set">执行</button>
-            </div>
-
-            <h2 class="card-title text-xs uppercase opacity-60 mt-3">自由命令</h2>
-            <textarea class="textarea textarea-bordered w-full text-sm font-mono" rows="3"
-                      placeholder="每行一条，如 GET demo/foo&#10;SET demo/foo i64 42&#10;Ctrl+Enter 顺序执行"></textarea>
-            <div class="text-xs opacity-60">Ctrl+Enter 执行</div>
           </div>
+
+          <div class="h-cmd-group">写命令</div>
+          <div class="flex gap-2 items-center">
+            <span class="text-xs text-muted mono w-14">SET</span>
+            <input class="input input-sm mono flex-1" data-arg="set_name" value="demo/foo" />
+            <select class="select select-sm mono" data-arg="set_type">
+              ${TYPES.map(t => `<option>${t}</option>`).join('')}
+            </select>
+            <input class="input input-sm mono w-28" data-arg="set_value" value="42" />
+            <button class="btn btn-primary btn-sm" data-fn="set">执行</button>
+          </div>
+
+          <div class="h-cmd-group">自由命令（inline）</div>
+          <textarea class="textarea mono w-full" style="background:var(--bg-base);border:1px solid var(--border);font-size:12px;" rows="3"
+                    placeholder="每行一条，如 GET demo/foo&#10;SET 走按钮模式（inline SET 不支持二进制编码）&#10;Ctrl+Enter 顺序执行"></textarea>
+          <div class="text-xs text-dim mono mt-1">Ctrl+Enter 顺序执行 · inline SET 不支持（需二进制编码）</div>
         </div>
 
-        <div class="card bg-base-100 shadow">
-          <div class="card-body p-4">
-            <div class="flex items-center justify-between">
-              <h2 class="card-title text-xs uppercase opacity-60">请求 / 响应日志</h2>
-              <div class="flex gap-2">
-                <button class="btn btn-xs btn-ghost" id="cmd-copy">复制</button>
-                <button class="btn btn-xs btn-ghost" id="cmd-clear">清空</button>
-              </div>
+        <div class="surface" style="padding: 14px; display:flex;flex-direction:column;max-height:85vh;">
+          <div class="flex items-center justify-between mb-2">
+            <div class="h-cmd-group" style="margin:0;border:0;padding:0;">请求 / 响应日志</div>
+            <div class="flex gap-1">
+              <button class="btn btn-ghost btn-xs" id="cmd-copy">复制</button>
+              <button class="btn btn-ghost btn-xs" id="cmd-clear">清空</button>
             </div>
-            <div id="cmd-log" class="overflow-auto max-h-[70vh] font-mono text-xs space-y-1"></div>
           </div>
+          <div id="cmd-log" class="overflow-auto" style="flex:1;"></div>
         </div>
       </div>
     `;
 
-    // 命令映射
     const handlers = {
       HELLO: () => this.client._send(['HELLO', '1']),
       PING: () => this.client.ping(),
@@ -127,7 +126,6 @@ export default {
       },
     };
 
-    // 绑定按钮
     root.querySelectorAll('[data-cmd]').forEach(btn => {
       btn.onclick = () => this._run(btn.dataset.cmd, btn.dataset.cmd, handlers[btn.dataset.cmd]);
     });
@@ -135,13 +133,11 @@ export default {
       btn.onclick = () => this._run(btn.dataset.fn, btn.dataset.fn, handlers[btn.dataset.fn]);
     });
 
-    // 自由命令 textarea
     const ta = root.querySelector('textarea');
     ta.onkeydown = async (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         const lines = ta.value.split('\n').map(s => s.trim()).filter(Boolean);
         for (const line of lines) {
-          // inline 风格：空格分隔
           await this._runInline(line);
         }
       }
@@ -152,7 +148,9 @@ export default {
       this._renderLog();
     };
     root.querySelector('#cmd-copy').onclick = () => {
-      navigator.clipboard.writeText(this.logs.join('\n'));
+      navigator.clipboard.writeText(this.logs.map(l =>
+        `${l.ts} → ${l.request}\n${l.error ? 'ERR ' + l.error : '← ' + (l.response || '')} (${l.ms}ms)`
+      ).join('\n'));
     };
   },
 
@@ -166,7 +164,7 @@ export default {
   async _run(label, requestDesc, fn) {
     if (!this.client) { alert('未连接'); return; }
     const t0 = performance.now();
-    const entry = { ts: new Date().toLocaleTimeString(), request: requestDesc, response: null, ms: null, error: null };
+    const entry = { ts: new Date().toLocaleTimeString('zh-CN', { hour12: false }), request: requestDesc, response: null, ms: null, error: null };
     this.logs.push(entry);
     if (this.logs.length > 200) this.logs.shift();
     this._renderLog();
@@ -184,13 +182,11 @@ export default {
   async _runInline(line) {
     if (!this.client) return;
     const t0 = performance.now();
-    const entry = { ts: new Date().toLocaleTimeString(), request: line, response: null, ms: null, error: null };
+    const entry = { ts: new Date().toLocaleTimeString('zh-CN', { hour12: false }), request: line, response: null, ms: null, error: null };
     this.logs.push(entry);
     this._renderLog();
     try {
-      // 用 SDK 内部编码发送 inline（直接拼成字符串走 ws）
       const enc = new TextEncoder();
-      // inline 模式：发文本帧（runtime 端按 inline 解析）
       this.client._pending.push({
         resolve: (r) => {
           entry.ms = (performance.now() - t0).toFixed(2);
@@ -213,13 +209,13 @@ export default {
   _renderLog() {
     const wrap = document.getElementById('cmd-log');
     wrap.innerHTML = this.logs.slice().reverse().map(e => `
-      <div class="${e.error ? 'text-error' : ''} px-2 py-1 border-l-2 ${e.error ? 'border-error' : 'border-base-200'}">
-        <div class="opacity-60 text-[10px]">${e.ts}</div>
-        <div>→ ${escapeHtml(e.request)}</div>
-        ${e.response ? `<div class="text-success">← ${escapeHtml(e.response)} <span class="opacity-50">(${e.ms}ms)</span></div>` : ''}
-        ${e.error ? `<div class="text-error">✗ ${escapeHtml(e.error)} <span class="opacity-50">(${e.ms}ms)</span></div>` : ''}
+      <div class="log-entry ${e.error ? 'error' : ''}">
+        <div class="log-ts">${e.ts}</div>
+        <div class="log-req">→ ${escapeHtml(e.request)}</div>
+        ${e.response ? `<div class="log-resp">← ${escapeHtml(e.response)} <span class="log-ms">(${e.ms}ms)</span></div>` : ''}
+        ${e.error ? `<div class="log-err">✗ ${escapeHtml(e.error)} <span class="log-ms">(${e.ms}ms)</span></div>` : ''}
       </div>
-    `).join('') || '<div class="text-sm opacity-50">无日志</div>';
+    `).join('') || '<div class="text-sm text-dim" style="padding:24px;text-align:center;">无日志</div>';
   },
 };
 
