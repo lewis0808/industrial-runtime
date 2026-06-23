@@ -52,6 +52,13 @@ class Scheduler {
         Task task;
     };
 
+    /// 解锁执行阶段携带的到期任务快照（含 name 供失败日志定位）。
+    struct DueTask {
+        TaskId id;
+        std::string name;
+        Task task;
+    };
+
     void runLoop(std::stop_token stopToken);
 
     mutable std::mutex mutex_;

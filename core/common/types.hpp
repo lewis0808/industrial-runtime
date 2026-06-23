@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <variant>
 
 namespace core {
@@ -41,6 +42,32 @@ using Variant =
     std::variant<std::monostate, // Null
                  bool, std::int8_t, std::int16_t, std::int32_t, std::int64_t, std::uint8_t,
                  std::uint16_t, std::uint32_t, std::uint64_t, float, double, std::string>;
+
+// ---- DataType ↔ Variant 契约锁（编译期）----
+// dataTypeOf() 依赖「DataType 取值 == 对应类型在 Variant 中的 index」这一隐式契约。
+// 下面把它显式锁死：枚举值或 Variant 备选顺序任一处重排，都会在此静态失败，
+// 而非运行期静默错位。每条断言同时校验 ① 枚举值即该备选的 index、② 该 index 处确为预期类型。
+namespace detail {
+template <DataType D, typename T>
+inline constexpr bool variantAltIs =
+    std::is_same_v<std::variant_alternative_t<static_cast<std::size_t>(D), Variant>, T>;
+} // namespace detail
+
+static_assert(std::variant_size_v<Variant> == static_cast<std::size_t>(DataType::String) + 1,
+              "DataType 枚举数量与 Variant 备选数量不一致");
+static_assert(detail::variantAltIs<DataType::Null, std::monostate>);
+static_assert(detail::variantAltIs<DataType::Bool, bool>);
+static_assert(detail::variantAltIs<DataType::Int8, std::int8_t>);
+static_assert(detail::variantAltIs<DataType::Int16, std::int16_t>);
+static_assert(detail::variantAltIs<DataType::Int32, std::int32_t>);
+static_assert(detail::variantAltIs<DataType::Int64, std::int64_t>);
+static_assert(detail::variantAltIs<DataType::UInt8, std::uint8_t>);
+static_assert(detail::variantAltIs<DataType::UInt16, std::uint16_t>);
+static_assert(detail::variantAltIs<DataType::UInt32, std::uint32_t>);
+static_assert(detail::variantAltIs<DataType::UInt64, std::uint64_t>);
+static_assert(detail::variantAltIs<DataType::Float, float>);
+static_assert(detail::variantAltIs<DataType::Double, double>);
+static_assert(detail::variantAltIs<DataType::String, std::string>);
 
 /// 由 Variant 当前持有的备选类型推导其 DataType。
 [[nodiscard]] inline DataType dataTypeOf(const Variant &v) noexcept {

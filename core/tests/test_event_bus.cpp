@@ -1,5 +1,6 @@
 #include <atomic>
 #include <chrono>
+#include <stdexcept>
 #include <thread>
 
 #include "event_bus/event_bus.hpp"
@@ -64,6 +65,27 @@ int main() {
         IR_CHECK(waitFor([&] { return got.load() == 1; }, std::chrono::milliseconds(1000)));
         IR_CHECK(bus.unsubscribe(id));
         IR_CHECK(!bus.unsubscribe(id));
+        bus.stop();
+    }
+
+    // 订阅者抛异常被隔离：派发线程存活，同一事件的其它订阅者仍收到，
+    // 后续事件继续派发。注册顺序：先抛异常者，后正常者，验证异常不阻断后续 handler。
+    {
+        EventBus bus(64);
+        std::atomic<int> boomCalls{0};
+        std::atomic<int> goodCalls{0};
+        bus.subscribe([&](const Event &) {
+            boomCalls.fetch_add(1);
+            throw std::runtime_error("boom");
+        });
+        bus.subscribe([&](const Event &) { goodCalls.fetch_add(1); });
+        bus.start();
+        for (int i = 0; i < 5; ++i) {
+            bus.publish(Event{"src", "cat", "msg", EventSeverity::Info});
+        }
+        // 正常订阅者收齐 5 条 → 异常未阻断同事件后续 handler，也未终止派发线程。
+        IR_CHECK(waitFor([&] { return goodCalls.load() == 5; }, std::chrono::milliseconds(1000)));
+        IR_CHECK_EQ(boomCalls.load(), 5); // 抛异常订阅者每条都被调用
         bus.stop();
     }
 

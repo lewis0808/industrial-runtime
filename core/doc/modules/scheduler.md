@@ -1,6 +1,6 @@
 # Scheduler — 可中断周期调度
 
-> `scheduler/scheduler.{hpp,cpp}` · 库 `core_scheduler` · 依赖 `Threads`
+> `scheduler/scheduler.{hpp,cpp}` · 库 `core_scheduler` · 依赖 `Threads`、`core_logger`(PRIVATE，任务异常日志)
 
 单一调度线程驱动周期任务（采集周期、心跳等）。用 `steady_clock`（单调时钟，不受墙钟跳变影响）。
 
@@ -31,14 +31,15 @@ std::size_t taskCount() const;
 
 - API 线程安全。**任务在调度线程内同步执行** → 耗时任务必须自行卸载到其它线程，
   否则阻塞后续所有任务的调度。
-- ⚠️ **任务回调无异常防护**：`task()` 直接调用，若抛异常会逃逸 `runLoop` → 调度线程 →
-  `std::terminate`。这是当前最该修的健壮性缺口。
+- ✅ **任务回调异常隔离**：解锁执行阶段逐任务包 `try/catch`（`std::exception` + `...`），
+  捕获后 `IR_LOG_ERROR` 记任务名/id/`what()`。单任务抛异常仅记日志，不逃逸 `runLoop`、
+  不终止调度线程；抛异常任务下周期照常重入，邻居任务不受波及。`test_scheduler` 有专项用例。
 
 ## 待改善
 
 | 项 | 说明 | 优先级/方向 |
 |----|------|-------------|
-| **任务异常未捕获** | 抛异常即终止进程。 | **高**：`task()` 外包 `try/catch` 记日志，单任务失败不拖垮调度线程。 |
+| ~~**任务异常未捕获**~~ | ~~抛异常即终止进程。~~ | ✅ 已解决：逐任务 `try/catch` + `IR_LOG_ERROR`，单任务失败不拖垮调度线程。 |
 | **求最近到期 O(N)** | 每轮线性扫全部任务。 | 任务量大时改最小堆 / 有序结构（`multimap<time_point,...>`）。 |
 | **周期漂移** | `nextRun = now + interval`（按实际执行点算，非按计划点）。 | 慢 tick 会累积漂移；需要时改 `nextRun += interval` 并做追赶/合并策略。 |
 | **单线程串行** | 长任务阻塞其余任务（已在注释声明）。 | 可选 worker 池执行到期任务。 |

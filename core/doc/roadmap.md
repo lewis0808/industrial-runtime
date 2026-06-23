@@ -7,10 +7,10 @@
 
 | # | 模块 | 问题 | 建议 |
 |---|------|------|------|
-| 1 | [scheduler](modules/scheduler.md) | 任务回调抛异常逃逸调度线程 → `std::terminate`。 | `task()` 外包 `try/catch` 并记日志，单任务失败不拖垮线程。 |
-| 2 | [event-bus](modules/event-bus.md) | handler 抛异常逃逸派发线程 → 终止。 | `deliver` 内逐 handler `try/catch`。 |
+| ~~1~~ | [scheduler](modules/scheduler.md) | ~~任务回调抛异常逃逸调度线程 → `std::terminate`。~~ | ✅ 已解决：调度线程逐任务 `try/catch`（`std::exception` + `...`），捕获后 `IR_LOG_ERROR` 记任务名/id/`what()`，单任务失败仅记日志不拖垮线程；`test_scheduler` 新增异常隔离用例覆盖。 |
+| ~~2~~ | [event-bus](modules/event-bus.md) | ~~handler 抛异常逃逸派发线程 → 终止。~~ | ✅ 已解决：`deliver` 逐 handler `try/catch`（`std::exception` + `...`），捕获后 `IR_LOG_ERROR` 记 sub id/事件 source·category/`what()`，单订阅者失败不拖垮派发线程；`test_event_bus` 新增异常隔离用例覆盖。 |
 | ~~3~~ | [plugin-system](modules/plugin-system.md) | ~~插件 `createPlugin/init/start/stop` 跨 DLL 抛异常 → UB。~~ | ✅ 已解决：宿主侧 `guardedCall` + thunk `noexcept` 双向异常隔离，单测 `test_plugin_host` 覆盖。 |
-| 4 | [data-model](data-model.md) | `DataType` 顺序与 `Variant` 备选顺序的对应是隐式契约，重排即静默错位。 | 加 `static_assert` 锁死每个枚举值↔`index()`。 |
+| ~~4~~ | [data-model](data-model.md) | ~~`DataType` 顺序与 `Variant` 备选顺序的对应是隐式契约，重排即静默错位。~~ | ✅ 已解决：`types.hpp` 逐枚举值 `static_assert` 锁死每个枚举值↔对应备选 `index` + 类型，并校验枚举数量 == `variant_size`，重排序即编译失败。 |
 
 ## P1 — 设计债 / 可扩展性
 
@@ -46,6 +46,9 @@
 - ✅ 数据面纯 C ABI（结构/字符串/枚举跨边界安全）。
 - ✅ 跨平台 DLL 加载、可中断后台线程、零外部框架单测。
 - ✅ 插件 C-ABI 边界异常隔离（宿主→插件调用 + 插件→宿主 thunk 双向 `try/catch`，单插件抛异常不拖垮运行时）。
+- ✅ 调度器任务异常隔离（到期任务逐个 `try/catch` 记日志，单任务抛异常不逃逸调度线程，不再 `std::terminate`）。
+- ✅ 事件总线 handler 异常隔离（`deliver` 逐订阅者 `try/catch` 记日志，单 handler 抛异常不逃逸派发线程，不影响同事件其它订阅者与后续派发）。
+- ✅ DataType↔Variant 契约编译期锁死（`types.hpp` 逐枚举值 `static_assert` 校验 index + 类型 + 数量，重排序即编译失败，杜绝 `dataTypeOf` 运行期静默错位）。
 - ✅ 写回路由最长前缀匹配 + 同前缀冲突告警；`writers_` 经 `shared_mutex` 并发安全，支持运行期动态注册。
 - ✅ 插件生命周期纯 C 化：C 函数指针 vtable `IrPluginInstance`（ABI v3），宿主与插件无需同一 C++ ABI，任意语言/编译器可写插件。
 - ✅ 运行期按 id 热卸载 / reload：写回 owner 归属 + 引用计数排空（卸载前撤销写回并排空在途调用，杜绝 use-after-free），`PluginManager` 线程安全；经**独立本机 admin 通道**（`admin/` 模块，命名管道/AF_UNIX）的 `PLUGIN LIST/UNLOAD/RELOAD` 控制命令触发，与 IRSP 数据面解耦。

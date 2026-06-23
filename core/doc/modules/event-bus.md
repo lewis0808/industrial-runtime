@@ -1,6 +1,6 @@
 # EventBus — 无锁队列 + 单派发线程扇出
 
-> `event_bus/event_bus.{hpp,cpp}` + `event_bus/mpmc_queue.hpp` · 库 `core_event_bus` · 依赖 `Threads`
+> `event_bus/event_bus.{hpp,cpp}` + `event_bus/mpmc_queue.hpp` · 库 `core_event_bus` · 依赖 `Threads`、`core_logger`(PRIVATE，handler 异常日志)
 
 高性能事件总线：生产者经**无锁 MPMC 队列**投递，单一 `jthread` 派发线程出队并扇出给订阅者。
 生产与消费解耦——生产者不被慢订阅者拖慢。
@@ -38,14 +38,16 @@ struct Filter { EventSeverity minSeverity; std::string category; };  // category
 
 - `publish` 可多线程并发（无锁队列）。`deliver` 单线程（仅派发线程），故 handler 间无并发，
   但**一个慢 handler 阻塞其后所有事件**的派发。
-- handler 抛异常会逃逸出派发线程 → 终止。当前**未做防护**（见待改善）。
+- ✅ **handler 异常隔离**：`deliver` 逐 handler 包 `try/catch`（`std::exception` + `...`），
+  捕获后 `IR_LOG_ERROR` 记 `sub id` + 事件 `source/category` + `what()`。单订阅者抛异常仅记日志，
+  不逃逸派发线程、不终止；同一事件的后续订阅者照常收到，后续事件继续派发。`test_event_bus` 有专项用例。
 
 ## 待改善
 
 | 项 | 说明 | 影响/方向 |
 |----|------|-----------|
 | **每事件全量拷贝订阅表** | `deliver` 对每条事件都拷贝整个 `vector<Subscription>`（含 `std::function`）。 | 高事件率下每条一次堆分配 → 改 `shared_ptr<const vector>` 写时复制，派发只取一次引用。 |
-| **handler 异常未防护** | 抛异常逃逸派发线程 → `std::terminate`。 | `deliver` 内 `try/catch` 包裹每个 handler 并记日志。 |
+| ~~**handler 异常未防护**~~ | ~~抛异常逃逸派发线程 → `std::terminate`。~~ | ✅ 已解决：`deliver` 逐 handler `try/catch` + `IR_LOG_ERROR`，单订阅者失败不拖垮派发线程。 |
 | **单派发线程** | 一个慢 handler 拖垮全局派发。 | 可选 worker 池 / 每订阅独立队列；或约定 handler 必须非阻塞。 |
 | **过滤能力弱** | 仅 `minSeverity` + 单个精确 `category`。 | 需要 source 过滤、多分类、通配/Topic 过滤。 |
 | **丢弃即无声** | 满了只计数，无背压/无溢出策略选择。 | 提供策略：阻塞 / 覆盖最旧 / 扩容；并暴露丢弃速率指标。 |

@@ -1,8 +1,11 @@
 #include "scheduler/scheduler.hpp"
 
 #include <algorithm>
+#include <exception>
 #include <utility>
 #include <vector>
+
+#include "logger/logger.hpp"
 
 namespace core {
 
@@ -89,17 +92,27 @@ void Scheduler::runLoop(std::stop_token stopToken) {
 
         // 收集已到期任务，复制其回调后在解锁状态下执行。
         const auto nowTp = Clock::now();
-        std::vector<std::pair<TaskId, Task>> due;
+        std::vector<DueTask> due;
         for (auto &[id, entry] : tasks_) {
             if (entry.nextRun <= nowTp) {
-                due.emplace_back(id, entry.task);
+                due.push_back(DueTask{id, entry.name, entry.task});
                 entry.nextRun = nowTp + entry.interval;
             }
         }
 
         lock.unlock();
-        for (auto &[id, task] : due) {
-            task();
+        for (auto &item : due) {
+            // 任务回调异常不得逃逸调度线程（否则 std::terminate）：
+            // 逐任务隔离，单任务失败仅记日志，不拖垮整个调度器。
+            try {
+                item.task();
+            } catch (const std::exception &ex) {
+                IR_LOG_ERROR("scheduler: task '{}' (id={}) threw: {}", item.name, item.id,
+                             ex.what());
+            } catch (...) {
+                IR_LOG_ERROR("scheduler: task '{}' (id={}) threw unknown exception", item.name,
+                             item.id);
+            }
         }
         lock.lock();
     }

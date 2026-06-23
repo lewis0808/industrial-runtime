@@ -25,8 +25,10 @@ using Variant = std::variant<std::monostate, bool,
 DataType dataTypeOf(const Variant& v) { return static_cast<DataType>(v.index()); }
 ```
 
-这是个**隐式契约**：任何对其中一者重排序的改动都会静默错位。
-→ 见 [roadmap](roadmap.md)：建议加 `static_assert` 锁死对应关系。
+~~这是个**隐式契约**：任何对其中一者重排序的改动都会静默错位。~~
+✅ 该契约已用 `static_assert` **编译期锁死**（`types.hpp`）：逐枚举值校验
+①`DataType` 取值 == 其在 `Variant` 中对应备选的 `index`、②该 `index` 处确为预期 C++ 类型，
+并校验枚举数量 == `variant_size`。任一处重排序立即编译失败，不再可能运行期静默错位。
 
 - **禁止 `void*`**；二进制/图像/点云属于 Stream，不得塞进 `Variant`。
 - `dataTypeName(DataType)` 返回可读名（日志/序列化用）。
@@ -82,8 +84,8 @@ struct StreamFrame { std::string source; StreamType type; Timestamp timestamp; s
 
 ## 待改善
 
-- **DataType↔Variant 对应无编译期校验**：加 `static_assert` 把每个枚举值与
-  `Variant` 对应 alternative 的 `index()` 锁死，防止重排序静默错位。
+- ~~**DataType↔Variant 对应无编译期校验**~~ ✅ 已解决：`types.hpp` 用逐枚举值 `static_assert`
+  把每个枚举值与 `Variant` 对应 alternative 的 `index` + 类型锁死，重排序即编译失败。
 - **无 quality/质量戳**：工业场景常需 OPC 风格的质量字段（good/bad/uncertain）；
   当前 TagValue 无此维度（IRSP 数据模型已预留 map 扩展，core 侧未落地）。
 - **Timestamp 为 system_clock**：墙钟受 NTP 跳变影响；高精度场景或需单调时钟 + 墙钟双戳。

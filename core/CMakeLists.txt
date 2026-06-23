@@ -24,7 +24,7 @@ target_link_libraries(core_tag_engine PUBLIC core_common Threads::Threads)
 
 # ---- EventBus ----
 add_library(core_event_bus STATIC event_bus/event_bus.cpp)
-target_link_libraries(core_event_bus PUBLIC core_common Threads::Threads)
+target_link_libraries(core_event_bus PUBLIC core_common Threads::Threads PRIVATE core_logger)
 
 # ---- MemoryStore ----
 add_library(core_memory_store STATIC memory_store/memory_store.cpp)
@@ -32,7 +32,7 @@ target_link_libraries(core_memory_store PUBLIC core_common Threads::Threads)
 
 # ---- Scheduler ----
 add_library(core_scheduler STATIC scheduler/scheduler.cpp)
-target_link_libraries(core_scheduler PUBLIC core_common Threads::Threads)
+target_link_libraries(core_scheduler PUBLIC core_common Threads::Threads PRIVATE core_logger)
 
 # ---- RuntimeEngine（编排层，依赖全部子系统） ----
 add_library(core_runtime_engine STATIC runtime_engine/runtime_engine.cpp)
