@@ -3,5 +3,7 @@
 .claude/
 .trea/
 .codex/
+.vscode/
 cmake-build-debug/
 cmake-build-release/
+build/

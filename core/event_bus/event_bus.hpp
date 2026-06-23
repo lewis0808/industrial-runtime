@@ -48,7 +48,10 @@ class EventBus {
     bool publish(Event &&event);
 
     /// 订阅事件，返回可用于退订的 id。
-    SubscriptionId subscribe(Handler handler, Filter filter = {});
+    SubscriptionId subscribe(Handler handler, Filter filter);
+
+    /// 订阅事件（不限严重级别与分类），返回可用于退订的 id。
+    SubscriptionId subscribe(Handler handler);
 
     /// 退订。返回是否确实移除。
     bool unsubscribe(SubscriptionId id);

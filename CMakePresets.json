@@ -1,0 +1,19 @@
+{
+    "version": 8,
+    "configurePresets": [
+        {
+            "name": "Debug",
+            "displayName": "Clang 22.1.8 x86_64-pc-windows-msvc",
+            "description": "正在使用编译器: C = D:\\CPP_Dependence\\LLVM\\bin\\clang.exe, CXX = D:\\CPP_Dependence\\LLVM\\bin\\clang++.exe",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
+                "CMAKE_C_COMPILER": "D:/CPP_Dependence/LLVM/bin/clang.exe",
+                "CMAKE_CXX_COMPILER": "D:/CPP_Dependence/LLVM/bin/clang++.exe",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        }
+    ]
+}

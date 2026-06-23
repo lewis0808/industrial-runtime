@@ -57,6 +57,10 @@ EventBus::SubscriptionId EventBus::subscribe(Handler handler, Filter filter) {
     return id;
 }
 
+EventBus::SubscriptionId EventBus::subscribe(Handler handler) {
+    return subscribe(std::move(handler), Filter{});
+}
+
 bool EventBus::unsubscribe(SubscriptionId id) {
     std::lock_guard<std::mutex> lock(subsMutex_);
     for (auto it = subscriptions_.begin(); it != subscriptions_.end(); ++it) {
