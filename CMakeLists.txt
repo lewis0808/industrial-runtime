@@ -27,6 +27,7 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
 option(IR_BUILD_TESTS "Build core unit tests" ON)
+option(IR_BUILD_DEMO_PLUGINS "Build demo/test plugins under tools/" ON)
 
 if(IR_BUILD_TESTS)
     enable_testing()
@@ -44,3 +45,10 @@ add_executable(IndustrialRuntime core/main.cpp)
 target_link_libraries(IndustrialRuntime
     PRIVATE core_runtime_engine core_logger core_plugin_host core_plugin_manager
             irsp_server admin_server)
+
+# 开发者工具插件（demo-writeback 等测试夹具）：不是 core 单元测试，单独门控。
+# 必须在 IndustrialRuntime 目标之后（POST_BUILD 命令引用其输出目录）。
+# 产出 .dll/.so 装到 IndustrialRuntime 可执行文件同级 plugins/，runtime 自动发现加载。
+if(IR_BUILD_DEMO_PLUGINS)
+    add_subdirectory(tools/demo-writeback)
+endif()
